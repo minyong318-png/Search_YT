@@ -26,7 +26,7 @@ def format_date(date_str):
 
 @app.route("/tennis")
 def tennis_page():
-    facilities, availability = run_async(run_all())
+    facilities, availability = run_all()
 
     with open(TEMPLATE_PATH, encoding="utf-8") as f:
         template = f.read()
