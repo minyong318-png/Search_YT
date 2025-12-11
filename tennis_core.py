@@ -139,45 +139,51 @@ async def fetch_times(session, date_val, rid):
 # --------------------------------------------------------------
 async def fetch_availability(session, rid):
     today = datetime.today()
+
+    # 오늘 제외 → 내일부터 시작
+    start = today + timedelta(days=1)
+
     result = {}
 
-    # 이번달
-    y, m, d0 = today.year, today.month, today.day
+    # 이번 달
+    y, m = start.year, start.month
     last_this = calendar.monthrange(y, m)[1]
 
-    # 다음달
-    nd = today.replace(day=1) + timedelta(days=32)
-    ny, nm = nd.year, nd.month
+    # 다음 달
+    next_dt = start.replace(day=1) + timedelta(days=32)
+    ny, nm = next_dt.year, next_dt.month
     last_next = calendar.monthrange(ny, nm)[1]
 
     tasks = []
 
-    for d in range(d0, last_this + 1):
+    # 이번달: 내일 → 말일까지
+    for d in range(start.day, last_this + 1):
         date_val = f"{y}{m:02d}{d:02d}"
         tasks.append(fetch_times(session, date_val, rid))
 
+    # 다음달: 1일 → 말일까지
     for d in range(1, last_next + 1):
         date_val = f"{ny}{nm:02d}{d:02d}"
         tasks.append(fetch_times(session, date_val, rid))
 
-    times_list = await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks)
 
     idx = 0
-    for d in range(d0, last_this + 1):
+    # 이번달
+    for d in range(start.day, last_this + 1):
         key = f"{y}{m:02d}{d:02d}"
-        if times_list[idx]:
-            result[key] = times_list[idx]
+        if results[idx]:
+            result[key] = results[idx]
         idx += 1
 
+    # 다음달
     for d in range(1, last_next + 1):
         key = f"{ny}{nm:02d}{d:02d}"
-        if times_list[idx]:
-            result[key] = times_list[idx]
+        if results[idx]:
+            result[key] = results[idx]
         idx += 1
 
     return result
-
-
 # --------------------------------------------------------------
 # 전체 실행 함수
 # --------------------------------------------------------------
