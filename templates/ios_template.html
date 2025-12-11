@@ -1,78 +1,168 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <title>용인 테니스 예약 현황</title>
 
 <style>
     :root {
-        --bg: #f5f5f7;
-        --card: #ffffff;
-        --text: #1d1d1f;
-        --blue: #007aff;
-        --gray: #8e8e93;
-        --radius: 18px;
+        --accent: #3182f6; /* Toss Blue */
+
+        --bg-light: #f9fafb;
+        --text-light: #111;
+        --subtext-light: #6b7280;
+        --card-light: #ffffff;
+
+        --bg-dark: #000;
+        --text-dark: #f5f5f7;
+        --subtext-dark: #a1a1aa;
+        --card-dark: #1f1f22;
+
+        --radius: 20px;
     }
 
+    @media (prefers-color-scheme: light) {
+        :root {
+            --bg: var(--bg-light);
+            --text: var(--text-light);
+            --sub: var(--subtext-light);
+            --card: var(--card-light);
+        }
+    }
     @media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #000000;
-        --card: #2c2c2e; /* 기존 #1c1c1e보다 더 밝아서 구분 쉬움 */
-        --text: #ffffff;
-        --gray: #d1d1d6;
+        :root {
+            --bg: var(--bg-dark);
+            --text: var(--text-dark);
+            --sub: var(--subtext-dark);
+            --card: var(--card-dark);
+        }
     }
 
-    /* 날짜 박스가 안 보이는 문제 해결 */
-    .date-section {
-        background: #3a3a3c !important; /* 다크모드에서 확실히 보이게 */
+    body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text";
     }
 
-    /* 날짜 텍스트 강조 */
-    .date-header {
-        color: #ffffff !important;
+    /* 🔵 상단 네비바 */
+    .navbar {
+        position: sticky;
+        top: 0;
+        padding: 20px 0;
+        font-size: 22px;
+        font-weight: 700;
+        text-align: center;
+        background: var(--bg);
+        color: var(--text);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        z-index: 20;
     }
 
-    /* time-slot 대비 강화 */
-    .time-slot {
-        background: #2c2c2e !important;
-        border: 1px solid #4d4d4d !important;
-        color: #ffffff !important;
+    /* 🔵 Segmented Control */
+    .segment {
+        display: flex;
+        gap: 8px;
+        margin: 16px;
     }
 
-    /* 카드 윤곽을 더 명확하게 */
-    .court-card {
-        background: #2c2c2e !important;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.6) !important;
-    }
-
-    /* 필터 버튼 색상도 조정 */
     .segment button {
-        background: #2c2c2e;
-        border: 1px solid #4d4d4d;
-        color: #ffffff;
+        flex: 1;
+        padding: 12px;
+        border-radius: 12px;
+        background: var(--card);
+        border: 1px solid rgba(255,255,255,0.12);
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--sub);
+        transition: 0.2s ease;
     }
 
     .segment button.active {
-        background: #0A84FF !important; /* iOS 다크모드 공식 블루톤 */
-        color: #ffffff;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        box-shadow: 0 4px 16px rgba(49,130,246,0.35);
+    }
+
+    /* 🔵 드롭다운 */
+    .filter-block {
+        margin: 8px 16px;
     }
 
     .filter-block select {
-        background: #2c2c2e;
-        color: #ffffff;
-        border: 1px solid #4d4d4d;
+        width: 100%;
+        padding: 13px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.15);
+        background: var(--card);
+        color: var(--text);
+        font-size: 15px;
     }
+
+    /* 🔵 테슬라 스타일 카드 */
+    .court-card {
+        background: var(--card);
+        margin: 18px;
+        padding: 22px;
+        border-radius: var(--radius);
+        box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+        transition: 0.2s;
+    }
+
+    .court-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .court-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .court-location {
+        font-size: 15px;
+        color: var(--sub);
+        margin-bottom: 14px;
+    }
+
+    /* 날짜 블록 */
+    .date-section {
+        margin-top: 14px;
+        padding: 14px;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.06);
+    }
+
+    .date-header {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .time-slot {
+        display: inline-block;
+        margin: 4px;
+        padding: 8px 14px;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
     }
 </style>
 </head>
 
 <body>
 
-<div class="navbar">용인 테니스 예약 현황</div>
+<div class="navbar">용인 테니스장 예약</div>
 
-<!-- 구 필터 -->
+<!-- 🔵 구 필터 -->
 <div class="segment" id="filter-gu">
     <button data-gu="all" class="active">전체</button>
     <button data-gu="처인구">처인구</button>
@@ -80,7 +170,7 @@
     <button data-gu="수지구">수지구</button>
 </div>
 
-<!-- 날짜 필터 -->
+<!-- 🔵 날짜 필터 -->
 <div class="segment" id="filter-date">
     <button data-date="tomorrow" class="active">내일</button>
     <button data-date="thisweek">이번주</button>
@@ -88,7 +178,7 @@
     <button data-date="nextmonth">다음달</button>
 </div>
 
-<!-- 테니스장 필터 -->
+<!-- 🔵 테니스장 필터 -->
 <div class="filter-block">
     <select id="filter-court">
         <option value="all">전체 테니스장</option>
@@ -97,10 +187,19 @@
 
 <div id="content"></div>
 
-<!-- -------------------- JS -------------------- -->
 <script>
 let FACILITIES = {};
 let AVAIL = {};
+
+/* 🔵 '20240218' → '2월 18일 (일)' 스타일로 변환 */
+function formatKoreanDate(dateKey) {
+    const y = parseInt(dateKey.substring(0, 4));
+    const m = parseInt(dateKey.substring(4, 6));
+    const d = parseInt(dateKey.substring(6, 8));
+    const dt = new Date(y, m - 1, d);
+    const weekday = ["일","월","화","수","목","금","토"][dt.getDay()];
+    return `${m}월 ${d}일 (${weekday})`;
+}
 
 async function loadData() {
     const res = await fetch("/data");
@@ -109,6 +208,7 @@ async function loadData() {
     FACILITIES = data.facilities;
     AVAIL = data.availability;
 
+    // 드롭다운 자동 생성
     const courtSelect = document.getElementById("filter-court");
     for (let rid in FACILITIES) {
         const opt = document.createElement("option");
@@ -120,43 +220,44 @@ async function loadData() {
     render();
 }
 
-function setActive(el) {
-    const parent = el.parentElement;
-    [...parent.children].forEach(btn => btn.classList.remove("active"));
-    el.classList.add("active");
+function setActive(btn) {
+    const group = btn.parentElement.children;
+    [...group].forEach(el => el.classList.remove("active"));
+    btn.classList.add("active");
 }
 
 function filterByDate(days, filterType) {
     let result = {};
     const now = new Date();
-    const tomorrow = new Date(now.getTime() + 86400000);
-    const format = d => d.toISOString().slice(0,10).replace(/-/g,"");
+    const tomorrow = new Date(Date.now() + 86400000);
+
+    const fmt = d => d.toISOString().slice(0,10).replace(/-/g, "");
 
     if (filterType === "tomorrow") {
-        const key = format(tomorrow);
+        const key = fmt(tomorrow);
         if (days[key]) result[key] = days[key];
     }
     else if (filterType === "thisweek") {
-        const end = new Date(now);
+        const end = new Date();
         end.setDate(now.getDate() + (7 - now.getDay()));
         for (let d = new Date(tomorrow); d <= end; d.setDate(d.getDate()+1)) {
-            const key = format(d);
-            if (days[key]) result[key] = days[key];
+            const k = fmt(d);
+            if (days[k]) result[k] = days[k];
         }
     }
     else if (filterType === "thismonth") {
         const end = new Date(now.getFullYear(), now.getMonth()+1, 0);
         for (let d = new Date(tomorrow); d <= end; d.setDate(d.getDate()+1)) {
-            const key = format(d);
-            if (days[key]) result[key] = days[key];
+            const k = fmt(d);
+            if (days[k]) result[k] = days[k];
         }
     }
     else if (filterType === "nextmonth") {
         const start = new Date(now.getFullYear(), now.getMonth()+1, 1);
         const end = new Date(now.getFullYear(), now.getMonth()+2, 0);
         for (let d = start; d <= end; d.setDate(d.getDate()+1)) {
-            const key = format(d);
-            if (days[key]) result[key] = days[key];
+            const k = fmt(d);
+            if (days[k]) result[k] = days[k];
         }
     }
 
@@ -164,20 +265,19 @@ function filterByDate(days, filterType) {
 }
 
 function render() {
-    const guFilter = document.querySelector("#filter-gu .active").dataset.gu;
-    const dateFilter = document.querySelector("#filter-date .active").dataset.date;
-    const courtFilter = document.getElementById("filter-court").value;
+    const gu = document.querySelector("#filter-gu .active").dataset.gu;
+    const date = document.querySelector("#filter-date .active").dataset.date;
+    const court = document.getElementById("filter-court").value;
 
     let html = "";
 
     for (let rid in FACILITIES) {
-        if (courtFilter !== "all" && rid !== courtFilter) continue;
-
+        if (court !== "all" && rid !== court) continue;
         const loc = FACILITIES[rid].location || "";
-        if (guFilter !== "all" && !loc.includes(guFilter)) continue;
+        if (gu !== "all" && !loc.includes(gu)) continue;
 
-        let days = AVAIL[rid] || {};
-        let filtered = filterByDate(days, dateFilter);
+        const days = AVAIL[rid] || {};
+        const filtered = filterByDate(days, date);
         if (Object.keys(filtered).length === 0) continue;
 
         html += `
@@ -189,11 +289,12 @@ function render() {
         for (let dateKey in filtered) {
             html += `
             <div class="date-section">
-                <div class="date-header">${dateKey}</div>
+                <div class="date-header">${formatKoreanDate(dateKey)}</div>
             `;
             filtered[dateKey].forEach(t => {
                 html += `<div class="time-slot">${t.timeContent}</div>`;
             });
+
             html += `</div>`;
         }
 
@@ -203,14 +304,12 @@ function render() {
     document.getElementById("content").innerHTML = html;
 }
 
-document.querySelectorAll("#filter-gu button").forEach(btn =>
-    btn.addEventListener("click", () => { setActive(btn); render(); })
-);
-
-document.querySelectorAll("#filter-date button").forEach(btn =>
-    btn.addEventListener("click", () => { setActive(btn); render(); })
-);
-
+document.querySelectorAll("#filter-gu button").forEach(btn => {
+    btn.addEventListener("click", () => { setActive(btn); render(); });
+});
+document.querySelectorAll("#filter-date button").forEach(btn => {
+    btn.addEventListener("click", () => { setActive(btn); render(); });
+});
 document.getElementById("filter-court").addEventListener("change", render);
 
 loadData();
