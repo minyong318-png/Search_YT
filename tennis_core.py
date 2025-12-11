@@ -7,7 +7,6 @@ import calendar
 
 BASE_URL = "https://publicsports.yongin.go.kr"
 
-# 네가 로컬에서 사용하던 쿠키 그대로 넣음
 JSESSIONID = "3712D353323652076FA29988A7950583.tomcat1"
 
 HEADERS = {
@@ -21,13 +20,9 @@ COOKIES = {
 
 
 def get_connector():
-    # 동시 요청 최적화
     return aiohttp.TCPConnector(limit=50, ssl=False)
 
 
-# -----------------------------------------------------
-# 페이지 HTML 요청 (쿠키 + 헤더 포함)
-# -----------------------------------------------------
 async def fetch_html(session, url, params=None):
     try:
         async with session.get(url, params=params) as resp:
@@ -37,73 +32,94 @@ async def fetch_html(session, url, params=None):
 
 
 # -----------------------------------------------------
-# 전체 페이지 수 탐색 + 모든 시설 목록 수집
+# 페이지네이션: HTML의 pageIndex=숫자 기반
 # -----------------------------------------------------
 async def fetch_facilities(session, key="4236"):
     url = f"{BASE_URL}/publicsports/sports/selectFcltyRceptResveListU.do"
 
     facilities = {}
-    page = 1
-    total_pages = None
 
-    while True:
-        params = {
+    # 1) 첫 페이지 요청
+    params = {
+        "key": key,
+        "pageUnit": 8,
+        "pageIndex": 1,
+        "checkSearchMonthNow": "false"
+    }
+
+    html = await fetch_html(session, url, params=params)
+    if not html:
+        print("[ERROR] 1페이지 HTML 수신 실패")
+        return facilities
+
+    # 2) 페이지 번호 전체 추출
+    page_indices = re.findall(r"pageIndex=(\d+)", html)
+    if page_indices:
+        max_page = max(int(p) for p in page_indices)
+    else:
+        max_page = 1
+
+    print("발견된 마지막 페이지 번호:", max_page)
+
+    # 3) 첫 페이지 처리
+    facilities.update(parse_facility_html(html))
+
+    # 4) 2페이지 ~ 마지막 페이지 순회
+    tasks = []
+    for page in range(2, max_page + 1):
+        params2 = {
             "key": key,
-            "pageUnit": 20,
+            "pageUnit": 8,
             "pageIndex": page,
             "checkSearchMonthNow": "false"
         }
+        tasks.append(fetch_html(session, url, params=params2))
 
-        html = await fetch_html(session, url, params=params)
-        soup = BeautifulSoup(html, "html.parser")
+    pages_html = await asyncio.gather(*tasks)
 
-        # 페이지 개수(1번만 파싱)
-        if total_pages is None:
-            btns = soup.select("a[href*='fn_link_page']")
-            nums = []
-            for a in btns:
-                m = re.search(r"fn_link_page\((\d+)\)", a.get("href", ""))
-                if m:
-                    nums.append(int(m.group(1)))
-            total_pages = max(nums) if nums else 1
-
-        # 시설 목록 파싱
-        items = soup.select("li.reserve_box_item")
-        if not items:
-            break
-
-        for li in items:
-            a = li.select_one("div.btn_wrap a[href*='selectFcltyRceptResveViewU.do']")
-            if not a:
-                continue
-
-            href = a.get("href", "")
-            m = re.search(r"resveId=(\d+)", href)
-            if not m:
-                continue
-            rid = m.group(1)
-
-            title_div = li.select_one("div.reserve_title")
-            pos_div = title_div.select_one("div.reserve_position")
-
-            location = pos_div.get_text(strip=True) if pos_div else ""
-            if pos_div:
-                pos_div.extract()
-
-            title = title_div.get_text(strip=True)
-
-            # 여기서는 필터 없이 전체 시설을 먼저 수집하고
-            facilities[rid] = {"title": title, "location": location}
-
-        if page >= total_pages:
-            break
-        page += 1
+    for html in pages_html:
+        if html:
+            facilities.update(parse_facility_html(html))
 
     return facilities
 
 
 # -----------------------------------------------------
-# 날짜별 시간표 조회 (비동기 + POST 요청)
+# HTML → 시설 목록 파싱
+# -----------------------------------------------------
+def parse_facility_html(html):
+    soup = BeautifulSoup(html, "html.parser")
+    items = soup.select("li.reserve_box_item")
+
+    results = {}
+    for li in items:
+        a = li.select_one("div.btn_wrap a[href*='selectFcltyRceptResveViewU.do']")
+        if not a:
+            continue
+
+        href = a.get("href", "")
+        m = re.search(r"resveId=(\d+)", href)
+        if not m:
+            continue
+
+        rid = m.group(1)
+
+        title_div = li.select_one("div.reserve_title")
+        pos_div = title_div.select_one("div.reserve_position")
+
+        location = pos_div.get_text(strip=True) if pos_div else ""
+        if pos_div:
+            pos_div.extract()
+
+        title = title_div.get_text(strip=True)
+
+        results[rid] = {"title": title, "location": location}
+
+    return results
+
+
+# -----------------------------------------------------
+# 날짜별 시간표
 # -----------------------------------------------------
 async def fetch_times(session, date_val, rid):
     url = f"{BASE_URL}/publicsports/sports/selectRegistTimeByChosenDateFcltyRceptResveApply.do"
@@ -118,55 +134,46 @@ async def fetch_times(session, date_val, rid):
 
 
 # -----------------------------------------------------
-# 오늘 ~ 다음달말 전체 날짜 조회
+# 날짜 범위
 # -----------------------------------------------------
 async def fetch_availability(session, rid):
     today = datetime.today()
-    result = []
+    result = {}
 
-    # 이번달
     y, m, d0 = today.year, today.month, today.day
     last_this = calendar.monthrange(y, m)[1]
 
-    # 다음달
     nd = today.replace(day=1) + timedelta(days=32)
     ny, nm = nd.year, nd.month
     last_next = calendar.monthrange(ny, nm)[1]
 
     tasks = []
-
-    # 이번달
     for d in range(d0, last_this + 1):
-        date_val = f"{y}{m:02d}{d:02d}"
-        tasks.append(fetch_times(session, date_val, rid))
+        tasks.append(fetch_times(session, f"{y}{m:02d}{d:02d}", rid))
 
-    # 다음달
     for d in range(1, last_next + 1):
-        date_val = f"{ny}{nm:02d}{d:02d}"
-        tasks.append(fetch_times(session, date_val, rid))
+        tasks.append(fetch_times(session, f"{ny}{nm:02d}{d:02d}", rid))
 
-    times_list = await asyncio.gather(*tasks)
+    times = await asyncio.gather(*tasks)
 
-    availability = {}
     idx = 0
-
     for d in range(d0, last_this + 1):
-        date_key = f"{y}{m:02d}{d:02d}"
-        if times_list[idx]:
-            availability[date_key] = times_list[idx]
+        key = f"{y}{m:02d}{d:02d}"
+        if times[idx]:
+            result[key] = times[idx]
         idx += 1
 
     for d in range(1, last_next + 1):
-        date_key = f"{ny}{nm:02d}{d:02d}"
-        if times_list[idx]:
-            availability[date_key] = times_list[idx]
+        key = f"{ny}{nm:02d}{d:02d}"
+        if times[idx]:
+            result[key] = times[idx]
         idx += 1
 
-    return availability
+    return result
 
 
 # -----------------------------------------------------
-# 전체 실행 (비동기 전체 조율)
+# 전체 실행
 # -----------------------------------------------------
 async def run_all_async():
     async with aiohttp.ClientSession(
@@ -175,20 +182,20 @@ async def run_all_async():
         cookies=COOKIES
     ) as session:
 
-        fac = await fetch_facilities(session)
+        facilities = await fetch_facilities(session)
 
         tasks = []
-        for rid in fac:
+        for rid in facilities:
             tasks.append(fetch_availability(session, rid))
 
-        results = await asyncio.gather(*tasks)
+        avail_list = await asyncio.gather(*tasks)
 
         availability = {}
-        for (rid, info), data in zip(fac.items(), results):
-            if data:  # 시간표가 있으면 테니스장 확정
+        for (rid, info), data in zip(facilities.items(), avail_list):
+            if data:
                 availability[rid] = data
 
-        return fac, availability
+        return facilities, availability
 
 
 def run_all():
