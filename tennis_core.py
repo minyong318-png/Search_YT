@@ -21,44 +21,56 @@ async def fetch(session, url, method="GET", data=None):
 
 
 async def fetch_facilities(session, key):
-    url = f"{BASE_URL}/publicsports/sports/selectFcltyRceptResveListU.do"
-    params = {
-        "key": key,
-        "pageUnit": 8,
-        "checkSearchMonthNow": "false",
-        "pageIndex": 1,
-    }
+    base_url = f"{BASE_URL}/publicsports/sports/selectFcltyRceptResveListU.do"
 
-    async with session.get(url, params=params, ssl=False) as resp:
-        html = await resp.text()
+    page = 1
+    facilities = {}
 
-    soup = BeautifulSoup(html, "html.parser")
+    while True:
+        params = {
+            "key": key,
+            "pageUnit": 8,     # 20 or 50 등 크게 설정
+            "pageIndex": page,
+            "checkSearchMonthNow": "false"
+        }
 
-    res = {}
-    for li in soup.select("li.reserve_box_item"):
-        a = li.select_one("div.btn_wrap a[href*='selectFcltyRceptResveViewU.do']")
-        if not a:
-            continue
+        async with session.get(base_url, params=params, ssl=False) as resp:
+            html = await resp.text()
 
-        href = a["href"]
-        m = re.search(r"resveId=(\d+)", href)
-        if not m:
-            continue
+        soup = BeautifulSoup(html, "html.parser")
 
-        rid = m.group(1)
+        items = soup.select("li.reserve_box_item")
+        if not items:
+            break  # 더 이상 페이지 없음 → 종료
 
-        title_div = li.select_one("div.reserve_title")
-        pos_div = title_div.select_one("div.reserve_position")
-        location = pos_div.get_text(strip=True) if pos_div else ""
-        if pos_div:
-            pos_div.extract()
+        for li in items:
+            a = li.select_one("div.btn_wrap a[href*='selectFcltyRceptResveViewU.do']")
+            if not a:
+                continue
 
-        title = title_div.get_text(strip=True)
+            href = a["href"]
+            m = re.search(r"resveId=(\d+)", href)
+            if not m:
+                continue
 
-        if "테니스" in title:
-            res[rid] = {"title": title, "location": location}
+            rid = m.group(1)
 
-    return res
+            title_div = li.select_one("div.reserve_title")
+            pos_div = title_div.select_one("div.reserve_position")
+            location = pos_div.get_text(strip=True) if pos_div else ""
+            if pos_div:
+                pos_div.extract()
+
+            title = title_div.get_text(strip=True)
+
+            # 테니스 필터는 상황에 따라 조정 가능
+            if "테니스" in title or "코트" in title:
+                facilities[rid] = {"title": title, "location": location}
+
+        page += 1
+
+    return facilities
+
 
 
 async def fetch_times(session, date_val, resve_id, key):
