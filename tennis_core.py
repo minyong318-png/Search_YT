@@ -8,9 +8,6 @@ import calendar
 BASE_URL = "https://publicsports.yongin.go.kr"
 
 
-# -------------------------------------------
-# HTTP Client
-# -------------------------------------------
 async def fetch(session, url, method="GET", data=None):
     try:
         if method == "POST":
@@ -23,9 +20,6 @@ async def fetch(session, url, method="GET", data=None):
         return None
 
 
-# -------------------------------------------
-# 시설 목록 수집
-# -------------------------------------------
 async def fetch_facilities(session, key):
     url = f"{BASE_URL}/publicsports/sports/selectFcltyRceptResveListU.do"
     params = {
@@ -67,16 +61,10 @@ async def fetch_facilities(session, key):
     return res
 
 
-# -------------------------------------------
-# 날짜별 시간 조회
-# -------------------------------------------
 async def fetch_times(session, date_val, resve_id, key):
     url = f"{BASE_URL}/publicsports/sports/selectRegistTimeByChosenDateFcltyRceptResveApply.do"
 
-    data = {
-        "dateVal": date_val,
-        "resveId": resve_id,
-    }
+    data = {"dateVal": date_val, "resveId": resve_id}
 
     async with session.post(url, data=data, ssl=False) as resp:
         try:
@@ -86,42 +74,56 @@ async def fetch_times(session, date_val, resve_id, key):
             return []
 
 
-# -------------------------------------------
-# 한 코트 전체 수집
-# -------------------------------------------
 async def fetch_availability(session, resve_id, key):
     today = datetime.today()
 
-    months = []
-    months.append((today.year, today.month))
-    next_month = (today.replace(day=1) + timedelta(days=32))
-    months.append((next_month.year, next_month.month))
+    # 이번 달 범위
+    start_year = today.year
+    start_month = today.month
+    start_day = today.day
+    last_day_this_month = calendar.monthrange(start_year, start_month)[1]
+
+    # 다음 달 범위
+    next_month_date = today.replace(day=1) + timedelta(days=32)
+    next_year = next_month_date.year
+    next_month = next_month_date.month
+    last_day_next_month = calendar.monthrange(next_year, next_month)[1]
 
     tasks = []
-    for y, m in months:
-        last = calendar.monthrange(y, m)[1]
-        for d in range(1, last + 1):
-            date_val = f"{y}{m:02d}{d:02d}"
-            tasks.append(fetch_times(session, date_val, resve_id, key))
+
+    # 오늘 → 이번 달 마지막날
+    for d in range(start_day, last_day_this_month + 1):
+        date_val = f"{start_year}{start_month:02d}{d:02d}"
+        tasks.append(fetch_times(session, date_val, resve_id, key))
+
+    # 다음 달 1일 → 다음달 마지막날
+    for d in range(1, last_day_next_month + 1):
+        date_val = f"{next_year}{next_month:02d}{d:02d}"
+        tasks.append(fetch_times(session, date_val, resve_id, key))
 
     results = await asyncio.gather(*tasks)
 
-    idx = 0
+    # 결과 병합
     availability = {}
-    for y, m in months:
-        last = calendar.monthrange(y, m)[1]
-        for d in range(1, last + 1):
-            date_val = f"{y}{m:02d}{d:02d}"
-            if results[idx]:
-                availability[date_val] = results[idx]
-            idx += 1
+    idx = 0
+
+    # 이번 달 데이터
+    for d in range(start_day, last_day_this_month + 1):
+        date_key = f"{start_year}{start_month:02d}{d:02d}"
+        if results[idx]:
+            availability[date_key] = results[idx]
+        idx += 1
+
+    # 다음 달 데이터
+    for d in range(1, last_day_next_month + 1):
+        date_key = f"{next_year}{next_month:02d}{d:02d}"
+        if results[idx]:
+            availability[date_key] = results[idx]
+        idx += 1
 
     return availability
 
 
-# -------------------------------------------
-# 전체 orchestration
-# -------------------------------------------
 async def run_all(key="4236"):
     async with aiohttp.ClientSession() as session:
         facilities = await fetch_facilities(session, key)
@@ -132,8 +134,8 @@ async def run_all(key="4236"):
 
         results = await asyncio.gather(*tasks)
 
-        availability_map = {}
-        for (rid, info), data in zip(facilities.items(), results):
-            availability_map[rid] = data
+        availability_map = {
+            rid: data for (rid, info), data in zip(facilities.items(), results)
+        }
 
         return facilities, availability_map

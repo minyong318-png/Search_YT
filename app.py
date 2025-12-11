@@ -1,6 +1,7 @@
 from flask import Flask, Response
 import asyncio
 import os
+from datetime import datetime
 from tennis_core import run_all
 import requests
 
@@ -19,15 +20,20 @@ def run_async(coro):
     return loop.run_until_complete(coro)
 
 
+# 날짜 포맷 함수 (년도 제거 + 요일 추가)
+def format_date(date_str):
+    dt = datetime.strptime(date_str, "%Y%m%d")
+    weekday = ["월", "화", "수", "목", "금", "토", "일"][dt.weekday()]
+    return f"{dt.month}월 {dt.day}일 ({weekday})"
+
+
 @app.route("/tennis")
 def tennis_page():
     facilities, availability = run_async(run_all())
 
-    # load template
     with open(TEMPLATE_PATH, encoding="utf-8") as f:
         template = f.read()
 
-    # build HTML content
     content = ""
     for rid, info in facilities.items():
         title = info["title"]
@@ -41,9 +47,10 @@ def tennis_page():
         """
 
         for date_val, times in sorted(dates.items()):
+            display_date = format_date(date_val)
             card += f"""
             <div class="date-section">
-                <div class="date-header">{date_val}</div>
+                <div class="date-header">{display_date}</div>
             """
 
             for t in times:
@@ -70,12 +77,10 @@ def check_slots():
         for times in days.values()
     )
 
-    # notify if new slots appear
     if current > last_slots and TELEGRAM_TOKEN:
-        msg = f"[용인] 예약 가능 개수 증가! 현재 {current}개"
+        msg = f"[용인] 예약 가능 증가! 현재 {current}개"
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
         requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
     last_slots = current
-
     return {"status": "ok", "slots": current}
