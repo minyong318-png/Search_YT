@@ -360,10 +360,22 @@ async function loadData() {
     FACILITIES = data.facilities || {};
     AVAIL = data.availability || {};
 
-    const updated = document.getElementById("updated-time");
-    updated.textContent =
-        data.updated_at ? timeAgo(data.updated_at) : "방금 전 업데이트됨";
+    const updatedBox = document.getElementById("updated-time");
 
+    if (data.updated_at && !isNaN(new Date(data.updated_at))) {
+        const abs = new Date(data.updated_at);
+
+        updatedBox.textContent =
+            `${timeAgo(data.updated_at)} · ${abs.toLocaleString("ko-KR", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit"
+            })}`;
+    } else {
+        updatedBox.textContent = "업데이트 기록 없음";
+    }
     buildCourtFilter();
     render();
 }

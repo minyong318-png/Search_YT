@@ -21,7 +21,7 @@ def refresh_cache():
     cache = {
         "facilities": facilities,
         "availability": availability,
-        "update_at" : datetime.now().isoformat()
+        "updated_at" : datetime.now().isoformat()
     }
 
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
