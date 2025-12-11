@@ -17,117 +17,53 @@
     }
 
     @media (prefers-color-scheme: dark) {
-        :root {
-            --bg: #000000;
-            --card: #1c1c1e;
-            --text: #f5f5f7;
-            --gray: #98989d;
-        }
+    :root {
+        --bg: #000000;
+        --card: #2c2c2e; /* 기존 #1c1c1e보다 더 밝아서 구분 쉬움 */
+        --text: #ffffff;
+        --gray: #d1d1d6;
     }
 
-    body {
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text";
-        background: var(--bg);
-        margin: 0;
-        padding: 0;
+    /* 날짜 박스가 안 보이는 문제 해결 */
+    .date-section {
+        background: #3a3a3c !important; /* 다크모드에서 확실히 보이게 */
     }
 
-    .navbar {
-        position: sticky;
-        top: 0;
-        background: var(--bg);
-        padding: 14px;
-        font-size: 22px;
-        font-weight: 700;
-        color: var(--text);
-        text-align: center;
-        border-bottom: 1px solid rgba(0,0,0,0.08);
+    /* 날짜 텍스트 강조 */
+    .date-header {
+        color: #ffffff !important;
     }
 
-    /* ---------- 필터 UI ---------- */
-    .segment {
-        display: flex;
-        gap: 8px;
-        margin: 14px;
+    /* time-slot 대비 강화 */
+    .time-slot {
+        background: #2c2c2e !important;
+        border: 1px solid #4d4d4d !important;
+        color: #ffffff !important;
     }
 
+    /* 카드 윤곽을 더 명확하게 */
+    .court-card {
+        background: #2c2c2e !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.6) !important;
+    }
+
+    /* 필터 버튼 색상도 조정 */
     .segment button {
-        flex: 1;
-        padding: 10px 12px;
-        border-radius: 10px;
-        border: 1px solid #ccc;
-        background: var(--card);
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text);
+        background: #2c2c2e;
+        border: 1px solid #4d4d4d;
+        color: #ffffff;
     }
 
     .segment button.active {
-        background: var(--blue);
-        color: white;
-    }
-
-    .filter-block {
-        margin: 12px 14px;
+        background: #0A84FF !important; /* iOS 다크모드 공식 블루톤 */
+        color: #ffffff;
     }
 
     .filter-block select {
-        width: 100%;
-        padding: 10px;
-        border-radius: 12px;
-        border: 1px solid #ccc;
+        background: #2c2c2e;
+        color: #ffffff;
+        border: 1px solid #4d4d4d;
     }
-
-    /* ---------- 카드 UI ---------- */
-    .court-card {
-        background: var(--card);
-        margin: 16px;
-        padding: 18px;
-        border-radius: var(--radius);
-        box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-        transition: 0.25s ease;
-    }
-
-    .court-card:hover {
-        transform: translateY(-3px);
-    }
-
-    .court-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: var(--text);
-        margin-bottom: 6px;
-    }
-
-    .court-location {
-        font-size: 14px;
-        color: var(--gray);
-        margin-bottom: 12px;
-    }
-
-    .date-section {
-        margin-bottom: 12px;
-        border-radius: var(--radius);
-        background: rgba(0,0,0,0.04);
-        padding: 10px;
-    }
-
-    .date-header {
-        font-size: 14px;
-        font-weight: 600;
-        margin-bottom: 8px;
-    }
-
-    .time-slot {
-        background: var(--card);
-        border-radius: 12px;
-        padding: 8px 12px;
-        margin: 4px;
-        display: inline-block;
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--text);
-        border: 1px solid rgba(0,0,0,0.12);
     }
 </style>
 </head>
