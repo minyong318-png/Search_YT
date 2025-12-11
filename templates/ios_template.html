@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>용인 테니스 예약 현황</title>
+
+<style>
+    :root {
+        --bg: #f5f5f7;
+        --card: #ffffff;
+        --text: #1d1d1f;
+        --blue: #007aff;
+        --gray: #8e8e93;
+        --radius: 18px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #000000;
+            --card: #1c1c1e;
+            --text: #f5f5f7;
+            --gray: #98989d;
+        }
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text";
+        background: var(--bg);
+        margin: 0;
+        padding: 0;
+    }
+
+    .navbar {
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        padding: 14px;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text);
+        text-align: center;
+        border-bottom: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .court-card {
+        background: var(--card);
+        margin: 16px;
+        padding: 18px;
+        border-radius: var(--radius);
+        box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+        transition: 0.25s ease;
+    }
+
+    .court-card:hover {
+        transform: translateY(-3px);
+    }
+
+    .court-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 6px;
+    }
+
+    .court-location {
+        font-size: 14px;
+        color: var(--gray);
+        margin-bottom: 12px;
+    }
+
+    .date-section {
+        margin-bottom: 12px;
+        border-radius: var(--radius);
+        background: rgba(0,0,0,0.04);
+        padding: 10px;
+    }
+
+    .date-header {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .time-slot {
+        background: var(--card);
+        border-radius: 12px;
+        padding: 8px 12px;
+        margin: 4px;
+        display: inline-block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        border: 1px solid rgba(0,0,0,0.12);
+    }
+
+</style>
+</head>
+
+<body>
+
+<div class="navbar">
+    용인 테니스 예약 현황
+</div>
+
+<div id="content">
+    <!-- Python이 채움 -->
+</div>
+
+</body>
+</html>
