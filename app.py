@@ -57,6 +57,19 @@ def get_data():
 
     return jsonify(cache)
 
+@app.route("/refresh")
+def refresh():
+    try:
+        refresh_cache()
+        return jsonify({
+            "status": "success",
+            "updated_at": datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 # --------------------------
 # 앱 시작 시 백그라운드 스레드 실행
