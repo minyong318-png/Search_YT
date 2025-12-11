@@ -58,7 +58,7 @@ async def fetch_facilities(session, key):
     while True:
         params = {
             "key": key,
-            "pageUnit": 20,
+            "pageUnit": 8,
             "pageIndex": page,
             "checkSearchMonthNow": "false"
         }
