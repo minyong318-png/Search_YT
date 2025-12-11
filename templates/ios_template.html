@@ -2,159 +2,255 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>용인 테니스 예약 현황</title>
 
 <style>
+/* ----------------------------------------------------------
+    기본 컬러 시스템 (Toss + Tesla + iOS Hybrid)
+---------------------------------------------------------- */
+:root {
+    --accent: #3182f6; /* Toss Blue */
+
+    --bg-light: #f5f7fa;
+    --text-light: #111;
+    --sub-light: #6b7280;
+    --card-light: #ffffff;
+
+    --bg-dark: #000;
+    --text-dark: #f5f5f7;
+    --sub-dark: #a1a1aa;
+    --card-dark: #1c1c1e;
+
+    --radius: 20px;
+}
+
+@media (prefers-color-scheme: light) {
     :root {
-        --accent: #3182f6; /* Toss Blue */
-
-        --bg-light: #f9fafb;
-        --text-light: #111;
-        --subtext-light: #6b7280;
-        --card-light: #ffffff;
-
-        --bg-dark: #000;
-        --text-dark: #f5f5f7;
-        --subtext-dark: #a1a1aa;
-        --card-dark: #1f1f22;
-
-        --radius: 20px;
+        --bg: var(--bg-light);
+        --text: var(--text-light);
+        --sub: var(--sub-light);
+        --card: var(--card-light);
     }
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: var(--bg-dark);
+        --text: var(--text-dark);
+        --sub: var(--sub-dark);
+        --card: var(--card-dark);
+    }
+}
 
-    @media (prefers-color-scheme: light) {
-        :root {
-            --bg: var(--bg-light);
-            --text: var(--text-light);
-            --sub: var(--subtext-light);
-            --card: var(--card-light);
-        }
-    }
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --bg: var(--bg-dark);
-            --text: var(--text-dark);
-            --sub: var(--subtext-dark);
-            --card: var(--card-dark);
-        }
-    }
+/* ----------------------------------------------------------
+    Body 기본 스타일
+---------------------------------------------------------- */
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text";
+}
 
-    body {
-        margin: 0;
-        padding: 0;
-        background: var(--bg);
-        color: var(--text);
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text";
-    }
+/* ----------------------------------------------------------
+    상단 네비게이션 (iOS Large Title)
+---------------------------------------------------------- */
+.navbar {
+    position: sticky;
+    top: 0;
+    padding: 18px 0 16px 0;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    background: var(--bg);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    z-index: 10;
+}
 
-    /* 🔵 상단 네비바 */
-    .navbar {
-        position: sticky;
-        top: 0;
-        padding: 20px 0;
-        font-size: 22px;
-        font-weight: 700;
-        text-align: center;
-        background: var(--bg);
-        color: var(--text);
-        backdrop-filter: blur(20px);
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        z-index: 20;
-    }
+/* ----------------------------------------------------------
+    필터 버튼 (Segmented Control)
+---------------------------------------------------------- */
+.segment {
+    display: flex;
+    gap: 8px;
+    margin: 16px;
+}
 
-    /* 🔵 Segmented Control */
-    .segment {
-        display: flex;
-        gap: 8px;
-        margin: 16px;
-    }
+.segment button {
+    flex: 1;
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: var(--card);
+    color: var(--sub);
+    transition: 0.2s ease;
+}
 
-    .segment button {
-        flex: 1;
-        padding: 12px;
-        border-radius: 12px;
-        background: var(--card);
-        border: 1px solid rgba(255,255,255,0.12);
-        font-size: 15px;
-        font-weight: 600;
-        color: var(--sub);
-        transition: 0.2s ease;
-    }
+.segment button.active {
+    background: var(--accent);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(49,130,246,0.35);
+}
 
-    .segment button.active {
-        background: var(--accent);
-        color: #fff;
-        border: none;
-        box-shadow: 0 4px 16px rgba(49,130,246,0.35);
-    }
+/* ----------------------------------------------------------
+    테니스장 드롭다운 (지역명 기반)
+---------------------------------------------------------- */
+.filter-block {
+    margin: 12px 16px;
+}
+.filter-block select {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: var(--card);
+    color: var(--text);
+    font-size: 16px;
+}
 
-    /* 🔵 드롭다운 */
-    .filter-block {
-        margin: 8px 16px;
-    }
+/* ----------------------------------------------------------
+    로딩 스켈레톤 (Toss style)
+---------------------------------------------------------- */
+.skeleton {
+    background: rgba(150,150,150,0.15);
+    border-radius: 12px;
+    margin: 10px 16px;
+    height: 90px;
+    animation: shine 1.4s infinite linear;
+}
+@keyframes shine {
+    0% { opacity: .5; }
+    50% { opacity: .2; }
+    100% { opacity: .5; }
+}
 
-    .filter-block select {
-        width: 100%;
-        padding: 13px;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.15);
-        background: var(--card);
-        color: var(--text);
-        font-size: 15px;
-    }
+/* ----------------------------------------------------------
+    Loading Spinner (iOS 스타일)
+---------------------------------------------------------- */
+.loader {
+    border: 4px solid rgba(255,255,255,0.12);
+    border-top: 4px solid var(--accent);
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    animation: spin .7s linear infinite;
+    margin: 40px auto 10px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-    /* 🔵 테슬라 스타일 카드 */
-    .court-card {
-        background: var(--card);
-        margin: 18px;
-        padding: 22px;
-        border-radius: var(--radius);
-        box-shadow: 0 6px 18px rgba(0,0,0,0.15);
-        transition: 0.2s;
-    }
+.loading-text {
+    text-align: center;
+    font-size: 14px;
+    color: var(--sub);
+}
 
-    .court-card:hover {
-        transform: translateY(-4px);
-    }
+/* ----------------------------------------------------------
+    카드 (Tesla feeling)
+---------------------------------------------------------- */
+.court-card {
+    background: var(--card);
+    margin: 18px;
+    padding: 22px;
+    border-radius: var(--radius);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+    animation: fadeUp .35s ease;
+}
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
 
-    .court-title {
-        font-size: 20px;
-        font-weight: 700;
-        margin-bottom: 4px;
-    }
+.court-title {
+    font-size: 20px;
+    font-weight: 700;
+}
+.court-location {
+    font-size: 15px;
+    color: var(--sub);
+    margin: 6px 0 12px 0;
+}
 
-    .court-location {
-        font-size: 15px;
-        color: var(--sub);
-        margin-bottom: 14px;
-    }
+/* 날짜구역 */
+.date-section {
+    background: rgba(255,255,255,0.06);
+    padding: 14px;
+    border-radius: 14px;
+    margin-top: 14px;
+}
+.date-header {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
 
-    /* 날짜 블록 */
-    .date-section {
-        margin-top: 14px;
-        padding: 14px;
-        border-radius: 14px;
-        background: rgba(255,255,255,0.06);
-    }
+/* 시간 슬롯 */
+.time-slot {
+    display: inline-block;
+    padding: 8px 14px;
+    margin: 4px;
+    background: rgba(255,255,255,0.10);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.18);
+    font-size: 14px;
+    font-weight: 600;
+}
 
-    .date-header {
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 8px;
-    }
+/* ----------------------------------------------------------
+    달력 팝업 (iOS Bottom Sheet)
+---------------------------------------------------------- */
+.calendar-sheet {
+    position: fixed;
+    bottom: -450px;
+    left: 0;
+    width: 100%;
+    background: var(--card);
+    border-radius: 22px 22px 0 0;
+    padding: 20px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.35);
+    transition: 0.35s ease;
+    z-index: 999;
+}
 
-    .time-slot {
-        display: inline-block;
-        margin: 4px;
-        padding: 8px 14px;
-        background: rgba(255,255,255,0.08);
-        border: 1px solid rgba(255,255,255,0.15);
-        border-radius: 12px;
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text);
-    }
+.calendar-sheet.show {
+    bottom: 0;
+}
+
+.calendar-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+/* 달력 */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    gap: 10px;
+}
+
+.calendar-day {
+    padding: 10px 0;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.05);
+}
+
+.calendar-day.selectable:hover {
+    background: var(--accent);
+    color: white;
+    cursor: pointer;
+}
+
+.calendar-day.active {
+    background: var(--accent);
+    color: white;
+}
+
 </style>
 </head>
 
@@ -162,45 +258,130 @@
 
 <div class="navbar">용인 테니스장 예약</div>
 
-<!-- 🔵 구 필터 -->
+<!-- 지역(구) 필터 -->
 <div class="segment" id="filter-gu">
-    <button data-gu="all" class="active">전체</button>
+    <button class="active" data-gu="all">전체</button>
     <button data-gu="처인구">처인구</button>
     <button data-gu="기흥구">기흥구</button>
     <button data-gu="수지구">수지구</button>
 </div>
 
-<!-- 🔵 날짜 필터 -->
-<div class="segment" id="filter-date">
-    <button data-date="tomorrow" class="active">내일</button>
-    <button data-date="thisweek">이번주</button>
-    <button data-date="thismonth">이번달</button>
-    <button data-date="nextmonth">다음달</button>
-</div>
-
-<!-- 🔵 테니스장 필터 -->
+<!-- 테니스장 그룹 필터 -->
 <div class="filter-block">
     <select id="filter-court">
         <option value="all">전체 테니스장</option>
     </select>
 </div>
 
-<div id="content"></div>
+<!-- 날짜 선택 버튼 -->
+<div class="filter-block">
+    <button id="open-calendar" style="
+        width:100%; padding:14px; border-radius:12px;
+        border:1px solid rgba(255,255,255,0.15);
+        background:var(--card); color:var(--text);
+        font-size:15px; font-weight:600;
+    ">날짜 선택</button>
+</div>
+
+<!-- 로딩 스켈레톤 -->
+<div id="skeletons">
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+</div>
+
+<!-- 실제 데이터 렌더링 공간 -->
+<div id="content" style="display:none;"></div>
+
+<!-- 달력 Bottom Sheet -->
+<div id="calendar-sheet" class="calendar-sheet">
+    <div class="calendar-title">날짜 선택</div>
+    <div id="calendar-container"></div>
+</div>
 
 <script>
 let FACILITIES = {};
 let AVAIL = {};
 
-/* 🔵 '20240218' → '2월 18일 (일)' 스타일로 변환 */
-function formatKoreanDate(dateKey) {
-    const y = parseInt(dateKey.substring(0, 4));
-    const m = parseInt(dateKey.substring(4, 6));
-    const d = parseInt(dateKey.substring(6, 8));
-    const dt = new Date(y, m - 1, d);
-    const weekday = ["일","월","화","수","목","금","토"][dt.getDay()];
+let ridToGroup = {};
+let selectedDate = null;
+
+/* ----------------------------------------------------------
+    0) 텍스트 → YYYYMMDD 포맷 → "2월 11일 (일)" 변환
+---------------------------------------------------------- */
+function formatKoreanDate(key) {
+    const y = +key.substring(0,4);
+    const m = +key.substring(4,6);
+    const d = +key.substring(6,8);
+    const weekday = ["일","월","화","수","목","금","토"][new Date(y, m - 1, d).getDay()];
     return `${m}월 ${d}일 (${weekday})`;
 }
 
+/* ----------------------------------------------------------
+    1) 테니스장명을 자동으로 그룹화
+---------------------------------------------------------- */
+function getGroupName(title) {
+    title = title.replace(/\[.*?\]/g, "");       // [유료] 제거
+    title = title.replace(/_[0-9]+월/g, "");     // _12월 제거
+    const m = title.match(/(.+?)테니스장/);
+    return m ? m[1].trim() : title.trim();
+}
+
+/* ----------------------------------------------------------
+    2) 달력 생성 (이번달 + 다음달)
+---------------------------------------------------------- */
+function generateCalendar() {
+    const now = new Date();
+    const months = [
+        new Date(now.getFullYear(), now.getMonth(), 1),
+        new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    ];
+
+    let html = "";
+
+    months.forEach(month => {
+        const y = month.getFullYear();
+        const m = month.getMonth() + 1;
+        const last = new Date(y, m, 0).getDate();
+
+        html += `<div style="font-size:17px; font-weight:700; margin:12px 0;">${m}월</div>`;
+        html += `<div class="calendar-grid">`;
+
+        for (let d = 1; d <= last; d++) {
+            const key = `${y}${String(m).padStart(2,'0')}${String(d).padStart(2,'0')}`;
+            html += `<div class="calendar-day selectable" data-date="${key}">${d}</div>`;
+        }
+        html += `</div>`;
+    });
+
+    document.getElementById("calendar-container").innerHTML = html;
+
+    // 날짜 클릭 이벤트
+    document.querySelectorAll(".calendar-day.selectable").forEach(day => {
+        day.addEventListener("click", () => {
+            selectedDate = day.dataset.date;
+            hideCalendar();
+            render();
+        });
+    });
+}
+
+/* ----------------------------------------------------------
+    3) Calendar Sheet show/hide
+---------------------------------------------------------- */
+function showCalendar() {
+    generateCalendar();
+    document.getElementById("calendar-sheet").classList.add("show");
+}
+
+function hideCalendar() {
+    document.getElementById("calendar-sheet").classList.remove("show");
+}
+
+document.getElementById("open-calendar").addEventListener("click", showCalendar);
+
+/* ----------------------------------------------------------
+    4) 데이터 로딩
+---------------------------------------------------------- */
 async function loadData() {
     const res = await fetch("/data");
     const data = await res.json();
@@ -208,77 +389,56 @@ async function loadData() {
     FACILITIES = data.facilities;
     AVAIL = data.availability;
 
-    // 드롭다운 자동 생성
-    const courtSelect = document.getElementById("filter-court");
-    for (let rid in FACILITIES) {
-        const opt = document.createElement("option");
-        opt.value = rid;
-        opt.textContent = FACILITIES[rid].title;
-        courtSelect.appendChild(opt);
-    }
-
+    buildCourtFilter();
     render();
+
+    document.getElementById("skeletons").style.display = "none";
+    document.getElementById("content").style.display = "block";
 }
 
-function setActive(btn) {
-    const group = btn.parentElement.children;
-    [...group].forEach(el => el.classList.remove("active"));
-    btn.classList.add("active");
+/* ----------------------------------------------------------
+    5) 테니스장 그룹 필터 구성
+---------------------------------------------------------- */
+function buildCourtFilter() {
+    let groups = new Set();
+
+    for (let rid in FACILITIES) {
+        const group = getGroupName(FACILITIES[rid].title);
+        ridToGroup[rid] = group;
+        groups.add(group);
+    }
+
+    groups = Array.from(groups).sort();
+    const sel = document.getElementById("filter-court");
+
+    groups.forEach(g => {
+        const opt = document.createElement("option");
+        opt.value = g;
+        opt.textContent = g;
+        sel.appendChild(opt);
+    });
 }
 
-function filterByDate(days, filterType) {
-    let result = {};
-    const now = new Date();
-    const tomorrow = new Date(Date.now() + 86400000);
-
-    const fmt = d => d.toISOString().slice(0,10).replace(/-/g, "");
-
-    if (filterType === "tomorrow") {
-        const key = fmt(tomorrow);
-        if (days[key]) result[key] = days[key];
-    }
-    else if (filterType === "thisweek") {
-        const end = new Date();
-        end.setDate(now.getDate() + (7 - now.getDay()));
-        for (let d = new Date(tomorrow); d <= end; d.setDate(d.getDate()+1)) {
-            const k = fmt(d);
-            if (days[k]) result[k] = days[k];
-        }
-    }
-    else if (filterType === "thismonth") {
-        const end = new Date(now.getFullYear(), now.getMonth()+1, 0);
-        for (let d = new Date(tomorrow); d <= end; d.setDate(d.getDate()+1)) {
-            const k = fmt(d);
-            if (days[k]) result[k] = days[k];
-        }
-    }
-    else if (filterType === "nextmonth") {
-        const start = new Date(now.getFullYear(), now.getMonth()+1, 1);
-        const end = new Date(now.getFullYear(), now.getMonth()+2, 0);
-        for (let d = start; d <= end; d.setDate(d.getDate()+1)) {
-            const k = fmt(d);
-            if (days[k]) result[k] = days[k];
-        }
-    }
-
-    return result;
-}
-
+/* ----------------------------------------------------------
+    6) render() – 실제 화면 표시
+---------------------------------------------------------- */
 function render() {
     const gu = document.querySelector("#filter-gu .active").dataset.gu;
-    const date = document.querySelector("#filter-date .active").dataset.date;
-    const court = document.getElementById("filter-court").value;
+    const courtGroup = document.getElementById("filter-court").value;
 
     let html = "";
 
     for (let rid in FACILITIES) {
-        if (court !== "all" && rid !== court) continue;
+        if (courtGroup !== "all" && ridToGroup[rid] !== courtGroup) continue;
+
         const loc = FACILITIES[rid].location || "";
         if (gu !== "all" && !loc.includes(gu)) continue;
 
-        const days = AVAIL[rid] || {};
-        const filtered = filterByDate(days, date);
-        if (Object.keys(filtered).length === 0) continue;
+        let days = AVAIL[rid] || {};
+        if (selectedDate) {
+            if (!days[selectedDate]) continue;
+            days = { [selectedDate]: days[selectedDate] };
+        }
 
         html += `
         <div class="court-card">
@@ -286,15 +446,14 @@ function render() {
             <div class="court-location">${FACILITIES[rid].location}</div>
         `;
 
-        for (let dateKey in filtered) {
+        for (let dk in days) {
             html += `
             <div class="date-section">
-                <div class="date-header">${formatKoreanDate(dateKey)}</div>
+                <div class="date-header">${formatKoreanDate(dk)}</div>
             `;
-            filtered[dateKey].forEach(t => {
+            days[dk].forEach(t => {
                 html += `<div class="time-slot">${t.timeContent}</div>`;
             });
-
             html += `</div>`;
         }
 
@@ -304,15 +463,24 @@ function render() {
     document.getElementById("content").innerHTML = html;
 }
 
+/* ----------------------------------------------------------
+    7) 이벤트 바인딩
+---------------------------------------------------------- */
 document.querySelectorAll("#filter-gu button").forEach(btn => {
-    btn.addEventListener("click", () => { setActive(btn); render(); });
+    btn.addEventListener("click", () => {
+        [...btn.parentElement.children].forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        render();
+    });
 });
-document.querySelectorAll("#filter-date button").forEach(btn => {
-    btn.addEventListener("click", () => { setActive(btn); render(); });
-});
+
 document.getElementById("filter-court").addEventListener("change", render);
 
+/* ----------------------------------------------------------
+    초기 실행
+---------------------------------------------------------- */
 loadData();
+
 </script>
 
 </body>
