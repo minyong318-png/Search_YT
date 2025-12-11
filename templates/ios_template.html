@@ -7,32 +7,41 @@
 <title>용인 테니스 예약 현황</title>
 
 <style>
+/* ================================
+   COLOR THEME — Toss / NPay Style
+================================ */
 :root {
-    --bg: #f5f5f7;
+    --bg: #f7f8fa;
     --card: #ffffff;
-    --text: #1d1d1f;
-    --sub: #8e8e93;
-    --accent: #007aff;
+    --text: #1a1a1c; 
+    --sub: #6e6e73;
+    --light: #a9a9ac;
+    --accent: #0064ff;   /* Toss Blue */
     --radius: 18px;
 }
 
+/* Dark mode */
 @media (prefers-color-scheme: dark) {
     :root {
         --bg: #000000;
-        --card: #1c1c1e;
-        --text: #f5f5f7;
-        --sub: #98989d;
+        --card: #1b1b1d;
+        --text: #f2f2f7;
+        --sub: #a1a1aa;
+        --light: #77777c;
+        --accent: #4da3ff;
     }
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "SF Pro Text";
     background: var(--bg);
+    color: var(--text);
     margin: 0;
-    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "SF Pro Text";
 }
 
-/* NAVBAR */
+/* ================================
+   NAVIGATION BAR
+================================ */
 .navbar {
     position: sticky;
     top: 0;
@@ -40,12 +49,13 @@ body {
     padding: 16px;
     font-size: 20px;
     font-weight: 700;
-    text-align: center;
-    color: var(--text);
     border-bottom: 1px solid rgba(0,0,0,0.08);
+    text-align: center;
 }
 
-/* UPDATE TIME */
+/* ================================
+   UPDATE TIME + ICON
+================================ */
 .update-row {
     display: flex;
     justify-content: center;
@@ -53,9 +63,9 @@ body {
     gap: 6px;
     margin-top: 6px;
     margin-bottom: 10px;
-    font-size: 14px;
     color: var(--sub);
 }
+
 .update-icon {
     width: 14px;
     height: 14px;
@@ -63,13 +73,14 @@ body {
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    opacity: 0.7;
 }
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
 
-/* SEGMENT BUTTONS (GU FILTER) */
+/* ================================
+   FILTERS
+================================ */
 .segment {
     display: flex;
     gap: 8px;
@@ -77,90 +88,94 @@ body {
 }
 .segment button {
     flex: 1;
-    padding: 10px 12px;
+    padding: 10px;
     border-radius: 10px;
-    border: 1px solid rgba(0,0,0,0.12);
+    border: 1px solid var(--light);
     background: var(--card);
     font-size: 14px;
     font-weight: 600;
-    color: var(--text);
-    transition: 0.2s ease;
+    color: var(--sub);
+    transition: 0.2s;
 }
 .segment button.active {
     background: var(--accent);
     color: white;
 }
 
-/* COURT FILTER */
 .filter-block {
     margin: 12px 14px;
 }
+
 .filter-block select,
 #open-calendar {
     width: 100%;
     padding: 14px;
     border-radius: 12px;
-    border: 1px solid rgba(0,0,0,0.12);
+    border: 1px solid var(--light);
     background: var(--card);
     font-size: 15px;
-    color: var(--text);
     font-weight: 600;
+    color: var(--text);
 }
 
-/* COURT CARD */
+/* ================================
+   COURT CARD
+================================ */
 .court-card {
     background: var(--card);
     margin: 16px;
-    padding: 18px;
+    padding: 20px;
     border-radius: var(--radius);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
 }
+
 .court-title {
     font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 6px;
-    color: var(--text);
+    font-weight: 700;
+    margin-bottom: 4px;
 }
+
 .court-location {
     font-size: 14px;
     color: var(--sub);
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
+
 .date-section {
     margin-bottom: 12px;
     background: rgba(0,0,0,0.04);
-    padding: 10px;
-    border-radius: var(--radius);
+    padding: 12px;
+    border-radius: 14px;
 }
+
 .date-header {
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     margin-bottom: 8px;
 }
+
 .time-slot {
     background: var(--card);
-    border-radius: 12px;
-    padding: 8px 12px;
+    padding: 7px 12px;
     display: inline-block;
     margin: 4px;
-    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 10px;
     font-size: 13px;
-    font-weight: 600;
+    border: 1px solid rgba(0,0,0,0.12);
 }
 
-/* ------------------------------------
-    iOS Bottom Sheet Calendar (고급 버전)
-------------------------------------- */
-
+/* ================================
+   BOTTOM SHEET CALENDAR (iOS Style)
+================================ */
 .calendar-sheet {
     position: fixed;
     bottom: -440px;
     left: 0;
     right: 0;
     background: var(--card);
-    border-radius: 22px 22px 0 0;
+    border-radius: 24px 24px 0 0;
     padding: 20px 20px 30px 20px;
-    box-shadow: 0 -4px 25px rgba(0,0,0,0.3);
+    box-shadow: 0 -6px 30px rgba(0,0,0,0.3);
     transition: 0.35s ease;
     z-index: 9999;
 }
@@ -169,24 +184,24 @@ body {
 }
 
 .calendar-handle {
-    width: 40px;
+    width: 44px;
     height: 5px;
-    background: rgba(120,120,120,0.25);
-    margin: 0 auto 14px auto;
+    background: rgba(120,120,120,0.28);
     border-radius: 3px;
+    margin: 0 auto 16px auto;
 }
 
 .calendar-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 14px;
 }
 .month-btn {
-    font-size: 22px;
+    font-size: 20px;
     padding: 4px 12px;
     cursor: pointer;
-    border-radius: 10px;
+    color: var(--sub);
 }
 .calendar-title {
     font-size: 18px;
@@ -197,6 +212,7 @@ body {
     display: grid;
     grid-template-columns: repeat(7,1fr);
     text-align: center;
+    font-size: 13px;
     color: var(--sub);
     margin-bottom: 6px;
 }
@@ -208,12 +224,13 @@ body {
 }
 
 .cal-day {
-    font-size: 14px;
     padding: 10px 0;
-    border-radius: 10px;
+    font-size: 14px;
     text-align: center;
-    cursor: pointer;
+    border-radius: 10px;
     background: rgba(255,255,255,0.05);
+    cursor: pointer;
+    transition: 0.2s;
 }
 .cal-day:hover {
     background: var(--accent);
@@ -226,14 +243,14 @@ body {
 }
 
 .calendar-close {
-    margin-top: 16px;
+    margin-top: 18px;
     width: 100%;
     padding: 12px;
     background: var(--accent);
     color: white;
-    text-align: center;
-    border-radius: 12px;
     font-weight: 700;
+    border-radius: 12px;
+    text-align: center;
     cursor: pointer;
 }
 
@@ -241,11 +258,11 @@ body {
 </head>
 
 
+
 <body>
 
 <div class="navbar">용인 테니스 예약 현황</div>
 
-<!-- 업데이트 시간 -->
 <div class="update-row">
     <div class="update-icon"></div>
     <div id="updated-time">업데이트 시간 계산 중...</div>
@@ -259,22 +276,26 @@ body {
     <button data-gu="수지구">수지구</button>
 </div>
 
-<!-- 날짜 선택 -->
+<!-- 날짜 필터: Bottom Sheet -->
 <div class="filter-block">
     <button id="open-calendar">날짜 선택하기</button>
 </div>
 
-<!-- 테니스장 필터 -->
+<!-- 테니스장 그룹 필터 -->
 <div class="filter-block">
     <select id="filter-court">
         <option value="all">전체 테니스장</option>
     </select>
 </div>
 
-
 <div id="content"></div>
 
-<!-- iOS Bottom Sheet Calendar -->
+
+
+
+<!-- ===========================
+      BOTTOM SHEET CALENDAR
+============================ -->
 <div id="calendar-sheet" class="calendar-sheet">
     <div class="calendar-handle"></div>
 
@@ -296,30 +317,28 @@ body {
 
 
 
+
+
 <script>
-/* -------------------------------
-   1) 상대적 시간 표시 (토스 스타일)
--------------------------------- */
-function timeAgo(timestamp) {
+/* ================================
+   상대적 업데이트 시간
+================================ */
+function timeAgo(ts) {
     const now = new Date();
-    const past = new Date(timestamp);
+    const past = new Date(ts);
     const diff = (now - past) / 1000;
 
     if (diff < 60) return "방금 전 업데이트됨";
-
-    const min = diff / 60;
-    if (min < 60) return `${Math.floor(min)}분 전 업데이트됨`;
-
-    const hour = min / 60;
-    if (hour < 24) return `${Math.floor(hour)}시간 전 업데이트됨`;
-
-    const day = hour / 24;
-    return `${Math.floor(day)}일 전 업데이트됨`;
+    if (diff < 3600) return `${Math.floor(diff/60)}분 전 업데이트됨`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}시간 전 업데이트됨`;
+    return `${Math.floor(diff/86400)}일 전 업데이트됨`;
 }
 
-/* -------------------------------
-   2) 데이터 로딩 + 업데이트 표시
--------------------------------- */
+
+
+/* ================================
+   DATA LOAD
+================================ */
 let FACILITIES = {};
 let AVAIL = {};
 let ridToGroup = {};
@@ -329,23 +348,24 @@ async function loadData() {
     const res = await fetch("/data");
     const data = await res.json();
 
-    FACILITIES = data.facilities || {};
-    AVAIL = data.availability || {};
+    FACILITIES = data.facilities;
+    AVAIL = data.availability;
 
-    const updatedBox = document.getElementById("updated-time");
-    if (data.updated_at) updatedBox.textContent = timeAgo(data.updated_at);
-    else updatedBox.textContent = "업데이트 없음";
+    document.getElementById("updated-time").textContent =
+        data.updated_at ? timeAgo(data.updated_at) : "업데이트 정보 없음";
 
     buildCourtFilter();
     render();
 }
 
-/* -------------------------------
-   3) 테니스장 그룹 필터 (남사=12월+1월 통합)
--------------------------------- */
+
+
+/* ================================
+   테니스장 그룹 필터 (남사=월 통합)
+================================ */
 function getGroupName(title) {
-    title = title.replace(/\[.*?\]/g, "");
-    title = title.replace(/_[0-9]+월/g, "");
+    title = title.replace(/\[.*?\]/g, "");  
+    title = title.replace(/_[0-9]+월/g, ""); 
     const m = title.match(/(.+?)테니스장/);
     return m ? m[1].trim() : title.trim();
 }
@@ -354,26 +374,28 @@ function buildCourtFilter() {
     let groups = new Set();
 
     for (let rid in FACILITIES) {
-        const g = getGroupName(FACILITIES[rid].title);
-        ridToGroup[rid] = g;
-        groups.add(g);
+        const group = getGroupName(FACILITIES[rid].title);
+        ridToGroup[rid] = group;
+        groups.add(group);
     }
 
     const sel = document.getElementById("filter-court");
-    groups = Array.from(groups).sort();
 
-    groups.forEach(g => {
-        const opt = document.createElement("option");
-        opt.value = g;
-        opt.textContent = g;
-        sel.appendChild(opt);
-    });
+    Array.from(groups)
+        .sort()
+        .forEach(g => {
+            const opt = document.createElement("option");
+            opt.value = g;
+            opt.textContent = g;
+            sel.appendChild(opt);
+        });
 }
 
-/* -------------------------------
-   4) 날짜 UI
--------------------------------- */
 
+
+/* ================================
+   CALENDAR (Bottom Sheet)
+================================ */
 let current = new Date();
 
 function renderCalendar() {
@@ -388,10 +410,11 @@ function renderCalendar() {
     const grid = document.getElementById("calendar-grid");
     grid.innerHTML = "";
 
-    for (let i = 0; i < first; i++) grid.innerHTML += "<div></div>";
+    for (let i=0;i<first;i++) grid.innerHTML += "<div></div>";
 
-    for (let d = 1; d <= last; d++) {
-        const key = `${year}${String(month+1).padStart(2,'0')}${String(d).padStart(2,'0')}`;
+    for (let d=1; d<=last; d++) {
+        const key =
+            `${year}${String(month+1).padStart(2,'0')}${String(d).padStart(2,'0')}`;
 
         grid.innerHTML += `
             <div class="cal-day ${selectedDate===key?'selected':''}"
@@ -400,20 +423,20 @@ function renderCalendar() {
     }
 
     document.querySelectorAll(".cal-day").forEach(day => {
-        day.addEventListener("click", () => {
+        day.onclick = () => {
             selectedDate = day.dataset.date;
             hideCalendar();
             render();
-        });
+        };
     });
 }
 
 document.getElementById("prev-month").onclick = () => {
-    current.setMonth(current.getMonth() - 1);
+    current.setMonth(current.getMonth()-1);
     renderCalendar();
 };
 document.getElementById("next-month").onclick = () => {
-    current.setMonth(current.getMonth() + 1);
+    current.setMonth(current.getMonth()+1);
     renderCalendar();
 };
 
@@ -428,21 +451,25 @@ function hideCalendar() {
 document.getElementById("open-calendar").onclick = showCalendar;
 document.getElementById("close-calendar").onclick = hideCalendar;
 
-/* -------------------------------
-   5) 날짜 표시 변환
--------------------------------- */
+
+
+/* ================================
+   날짜 표시 변환
+================================ */
 function formatKoreanDate(key) {
     const y = +key.substring(0,4);
     const m = +key.substring(4,6);
     const d = +key.substring(6,8);
     const dt = new Date(y, m-1, d);
-    const week = ["일","월","화","수","목","금","토"][dt.getDay()];
-    return `${m}월 ${d}일 (${week})`;
+    const w = ["일","월","화","수","목","금","토"][dt.getDay()];
+    return `${m}월 ${d}일 (${w})`;
 }
 
-/* -------------------------------
-   6) 렌더링
--------------------------------- */
+
+
+/* ================================
+   RENDER — (잔여시간 없으면 COURT 숨김)
+================================ */
 function render() {
     const gu = document.querySelector("#filter-gu .active").dataset.gu;
     const courtGroup = document.getElementById("filter-court").value;
@@ -458,24 +485,35 @@ function render() {
 
         const days = AVAIL[rid] || {};
 
+        let filteredDays = Object.keys(days);
+        if (selectedDate) filteredDays = filteredDays.filter(d => d === selectedDate);
+
+        // -------------------------------
+        // ⭐ 중요한 부분: 잔여 시간이 하나도 없으면 숨김
+        // -------------------------------
+        const hasAnySlot = filteredDays.some(date => days[date].length > 0);
+        if (!hasAnySlot) continue;
+
+
+
         html += `
         <div class="court-card">
             <div class="court-title">${FACILITIES[rid].title}</div>
             <div class="court-location">${FACILITIES[rid].location}</div>
         `;
 
-        for (let dk in days) {
-            if (selectedDate && dk !== selectedDate) continue;
-
+        filteredDays.forEach(dk => {
             html += `
             <div class="date-section">
                 <div class="date-header">${formatKoreanDate(dk)}</div>
             `;
+
             days[dk].forEach(t => {
                 html += `<div class="time-slot">${t.timeContent}</div>`;
             });
+
             html += `</div>`;
-        }
+        });
 
         html += `</div>`;
     }
@@ -483,9 +521,11 @@ function render() {
     document.getElementById("content").innerHTML = html;
 }
 
-/* -------------------------------
-   7) 필터 이벤트
--------------------------------- */
+
+
+/* ================================
+   FILTER EVENTS
+================================ */
 document.querySelectorAll("#filter-gu button").forEach(btn =>
     btn.addEventListener("click", () => {
         [...btn.parentElement.children].forEach(b => b.classList.remove("active"));
@@ -495,6 +535,7 @@ document.querySelectorAll("#filter-gu button").forEach(btn =>
 );
 
 document.getElementById("filter-court").addEventListener("change", render);
+
 
 /* EXEC */
 loadData();
