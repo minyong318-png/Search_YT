@@ -3,15 +3,12 @@ import asyncio
 import os
 from datetime import datetime
 from tennis_core import run_all
-import requests
 
 app = Flask(__name__)
 
 TEMPLATE_PATH = os.path.join("templates", "ios_template.html")
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
-
+# 슬롯 변화 추적 변수 → 단순 상태 확인용 (알림 없음)
 last_slots = 0
 
 
@@ -20,7 +17,7 @@ def run_async(coro):
     return loop.run_until_complete(coro)
 
 
-# 날짜 포맷 함수 (년도 제거 + 요일 추가)
+# 날짜 포맷: '1월 12일 (수)'
 def format_date(date_str):
     dt = datetime.strptime(date_str, "%Y%m%d")
     weekday = ["월", "화", "수", "목", "금", "토", "일"][dt.weekday()]
@@ -41,7 +38,7 @@ def tennis_page():
         dates = availability.get(rid, {})
 
         card = f"""
-        <div class="court-card" data-title="{title}" data-location="{location}">
+        <div class="court-card">
             <div class="court-title">{title}</div>
             <div class="court-location">{location}</div>
         """
@@ -67,6 +64,10 @@ def tennis_page():
 
 @app.route("/check")
 def check_slots():
+    """
+    이제 /check 는 단순히 전체 slot 개수만 반환하는 상태 체크 API
+    알림 기능 없음
+    """
     global last_slots
 
     facilities, availability = run_async(run_all())
@@ -77,10 +78,5 @@ def check_slots():
         for times in days.values()
     )
 
-    if current > last_slots and TELEGRAM_TOKEN:
-        msg = f"[용인] 예약 가능 증가! 현재 {current}개"
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
-
-    last_slots = current
+    last_slots = current  # 알림 없이 값만 갱신
     return {"status": "ok", "slots": current}
