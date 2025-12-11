@@ -80,3 +80,8 @@ def check_slots():
 
     last_slots = current  # 알림 없이 값만 갱신
     return {"status": "ok", "slots": current}
+
+@app.route("/data")
+def tennis_data():
+    facilities, availability = run_all()
+    return {"facilities": facilities, "availability": availability}
