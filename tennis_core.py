@@ -38,47 +38,36 @@ async def fetch_facilities(session, key="4236"):
     url = f"{BASE_URL}/publicsports/sports/selectFcltyRceptResveListU.do"
 
     facilities = {}
+    page = 1
+    max_page = None
 
-    # 1) 첫 페이지 요청
-    params = {
-        "key": key,
-        "pageUnit": 8,
+    # --- 테니스 필터는 POST 요청 ---
+    first_payload = {
+        "searchResveType": "03",      # ★ 테니스 필터 핵심
+        "searchGubun": "전체",
+        "searchArea": "전체",
+        "searchUse": "전체",
+        "checkSearchMonthNow": "false",
         "pageIndex": 1,
-        "checkSearchMonthNow": "false"
+        "pageUnit": 8
     }
+    # 1) 첫 페이지 요청
+    async with session.post(url, data=first_payload) as resp:
+        html = await resp.text()
 
-    html = await fetch_html(session, url, params=params)
-    if not html:
-        print("[ERROR] 1페이지 HTML 수신 실패")
-        return facilities
-
-    # 2) 페이지 번호 전체 추출
+    # 2) pageIndex=숫자 전체 추출 → max_page 계산
     page_indices = re.findall(r"pageIndex=(\d+)", html)
-    if page_indices:
-        max_page = max(int(p) for p in page_indices)
-    else:
-        max_page = 1
+    max_page = max(int(p) for p in page_indices) if page_indices else 1
 
-    print("발견된 마지막 페이지 번호:", max_page)
-
-    # 3) 첫 페이지 처리
     facilities.update(parse_facility_html(html))
 
-    # 4) 2페이지 ~ 마지막 페이지 순회
-    tasks = []
+    # 3) 나머지 페이지 요청
     for page in range(2, max_page + 1):
-        params2 = {
-            "key": key,
-            "pageUnit": 8,
-            "pageIndex": page,
-            "checkSearchMonthNow": "false"
-        }
-        tasks.append(fetch_html(session, url, params=params2))
+        payload = dict(first_payload)
+        payload["pageIndex"] = page
 
-    pages_html = await asyncio.gather(*tasks)
-
-    for html in pages_html:
-        if html:
+        async with session.post(url, data=payload) as resp:
+            html = await resp.text()
             facilities.update(parse_facility_html(html))
 
     return facilities
