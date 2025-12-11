@@ -17,10 +17,10 @@
     --sub: #6e6e73;
     --light: #a9a9ac;
     --accent: #0064ff;   /* Toss Blue */
+    --border: #e5e5ea;
     --radius: 18px;
 }
 
-/* Dark mode */
 @media (prefers-color-scheme: dark) {
     :root {
         --bg: #000000;
@@ -29,6 +29,7 @@
         --sub: #a1a1aa;
         --light: #77777c;
         --accent: #4da3ff;
+        --border: rgba(255,255,255,0.18);
     }
 }
 
@@ -49,7 +50,7 @@ body {
     padding: 16px;
     font-size: 20px;
     font-weight: 700;
-    border-bottom: 1px solid rgba(0,0,0,0.08);
+    border-bottom: 1px solid var(--border);
     text-align: center;
 }
 
@@ -86,17 +87,19 @@ body {
     gap: 8px;
     margin: 14px;
 }
+
 .segment button {
     flex: 1;
     padding: 10px;
     border-radius: 10px;
-    border: 1px solid var(--light);
+    border: 1px solid var(--border);
     background: var(--card);
     font-size: 14px;
     font-weight: 600;
     color: var(--sub);
     transition: 0.2s;
 }
+
 .segment button.active {
     background: var(--accent);
     color: white;
@@ -111,7 +114,7 @@ body {
     width: 100%;
     padding: 14px;
     border-radius: 12px;
-    border: 1px solid var(--light);
+    border: 1px solid var(--border);
     background: var(--card);
     font-size: 15px;
     font-weight: 600;
@@ -127,6 +130,7 @@ body {
     padding: 20px;
     border-radius: var(--radius);
     box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    border: 1px solid var(--border);
 }
 
 .court-title {
@@ -146,6 +150,7 @@ body {
     background: rgba(0,0,0,0.04);
     padding: 12px;
     border-radius: 14px;
+    border: 1px solid var(--border);
 }
 
 .date-header {
@@ -161,7 +166,7 @@ body {
     margin: 4px;
     border-radius: 10px;
     font-size: 13px;
-    border: 1px solid rgba(0,0,0,0.12);
+    border: 1px solid var(--border);
 }
 
 /* ================================
@@ -179,6 +184,7 @@ body {
     transition: 0.35s ease;
     z-index: 9999;
 }
+
 .calendar-sheet.show {
     bottom: 0;
 }
@@ -197,12 +203,14 @@ body {
     align-items: center;
     margin-bottom: 14px;
 }
+
 .month-btn {
     font-size: 20px;
     padding: 4px 12px;
     cursor: pointer;
     color: var(--sub);
 }
+
 .calendar-title {
     font-size: 18px;
     font-weight: 700;
@@ -232,10 +240,12 @@ body {
     cursor: pointer;
     transition: 0.2s;
 }
+
 .cal-day:hover {
     background: var(--accent);
     color: white;
 }
+
 .cal-day.selected {
     background: var(--accent);
     color: white;
@@ -253,7 +263,6 @@ body {
     text-align: center;
     cursor: pointer;
 }
-
 </style>
 </head>
 
@@ -276,7 +285,7 @@ body {
     <button data-gu="수지구">수지구</button>
 </div>
 
-<!-- 날짜 필터: Bottom Sheet -->
+<!-- 날짜 필터 -->
 <div class="filter-block">
     <button id="open-calendar">날짜 선택하기</button>
 </div>
@@ -289,7 +298,6 @@ body {
 </div>
 
 <div id="content"></div>
-
 
 
 
@@ -317,15 +325,16 @@ body {
 
 
 
-
-
 <script>
-/* ================================
-   상대적 업데이트 시간
-================================ */
+/* ==================================
+   TIME AGO (업데이트 시간)
+================================== */
 function timeAgo(ts) {
     const now = new Date();
     const past = new Date(ts);
+
+    if (isNaN(past.getTime())) return "방금 전 업데이트됨";
+
     const diff = (now - past) / 1000;
 
     if (diff < 60) return "방금 전 업데이트됨";
@@ -336,9 +345,9 @@ function timeAgo(ts) {
 
 
 
-/* ================================
+/* ==================================
    DATA LOAD
-================================ */
+================================== */
 let FACILITIES = {};
 let AVAIL = {};
 let ridToGroup = {};
@@ -348,11 +357,12 @@ async function loadData() {
     const res = await fetch("/data");
     const data = await res.json();
 
-    FACILITIES = data.facilities;
-    AVAIL = data.availability;
+    FACILITIES = data.facilities || {};
+    AVAIL = data.availability || {};
 
-    document.getElementById("updated-time").textContent =
-        data.updated_at ? timeAgo(data.updated_at) : "업데이트 정보 없음";
+    const updated = document.getElementById("updated-time");
+    updated.textContent =
+        data.updated_at ? timeAgo(data.updated_at) : "방금 전 업데이트됨";
 
     buildCourtFilter();
     render();
@@ -360,52 +370,49 @@ async function loadData() {
 
 
 
-/* ================================
-   테니스장 그룹 필터 (남사=월 통합)
-================================ */
+/* ==================================
+   테니스장 그룹 필터
+================================== */
 function getGroupName(title) {
-    title = title.replace(/\[.*?\]/g, "");  
-    title = title.replace(/_[0-9]+월/g, ""); 
+    title = title.replace(/\[.*?\]/g, "");
+    title = title.replace(/_[0-9]+월/g, "");
     const m = title.match(/(.+?)테니스장/);
     return m ? m[1].trim() : title.trim();
 }
 
 function buildCourtFilter() {
-    let groups = new Set();
+    const sel = document.getElementById("filter-court");
+    const groups = new Set();
 
     for (let rid in FACILITIES) {
-        const group = getGroupName(FACILITIES[rid].title);
-        ridToGroup[rid] = group;
-        groups.add(group);
+        const g = getGroupName(FACILITIES[rid].title);
+        ridToGroup[rid] = g;
+        groups.add(g);
     }
 
-    const sel = document.getElementById("filter-court");
-
-    Array.from(groups)
-        .sort()
-        .forEach(g => {
-            const opt = document.createElement("option");
-            opt.value = g;
-            opt.textContent = g;
-            sel.appendChild(opt);
-        });
+    Array.from(groups).sort().forEach(g => {
+        const opt = document.createElement("option");
+        opt.value = g;
+        opt.textContent = g;
+        sel.appendChild(opt);
+    });
 }
 
 
 
-/* ================================
-   CALENDAR (Bottom Sheet)
-================================ */
+/* ==================================
+   CALENDAR
+================================== */
 let current = new Date();
 
 function renderCalendar() {
-    const year = current.getFullYear();
-    const month = current.getMonth();
+    const y = current.getFullYear();
+    const m = current.getMonth();
 
-    document.getElementById("month-title").textContent = `${month+1}월 ${year}`;
+    document.getElementById("month-title").textContent = `${m+1}월 ${y}`;
 
-    const first = new Date(year, month, 1).getDay();
-    const last = new Date(year, month+1, 0).getDate();
+    const first = new Date(y, m, 1).getDay();
+    const last = new Date(y, m+1, 0).getDate();
 
     const grid = document.getElementById("calendar-grid");
     grid.innerHTML = "";
@@ -413,12 +420,13 @@ function renderCalendar() {
     for (let i=0;i<first;i++) grid.innerHTML += "<div></div>";
 
     for (let d=1; d<=last; d++) {
-        const key =
-            `${year}${String(month+1).padStart(2,'0')}${String(d).padStart(2,'0')}`;
+        const key = `${y}${String(m+1).padStart(2,'0')}${String(d).padStart(2,'0')}`;
 
         grid.innerHTML += `
-            <div class="cal-day ${selectedDate===key?'selected':''}"
-                 data-date="${key}">${d}</div>
+            <div class="cal-day ${selectedDate===key?"selected":""}"
+                 data-date="${key}">
+                ${d}
+            </div>
         `;
     }
 
@@ -444,6 +452,7 @@ function showCalendar() {
     document.getElementById("calendar-sheet").classList.add("show");
     renderCalendar();
 }
+
 function hideCalendar() {
     document.getElementById("calendar-sheet").classList.remove("show");
 }
@@ -453,9 +462,9 @@ document.getElementById("close-calendar").onclick = hideCalendar;
 
 
 
-/* ================================
+/* ==================================
    날짜 표시 변환
-================================ */
+================================== */
 function formatKoreanDate(key) {
     const y = +key.substring(0,4);
     const m = +key.substring(4,6);
@@ -467,9 +476,9 @@ function formatKoreanDate(key) {
 
 
 
-/* ================================
-   RENDER — (잔여시간 없으면 COURT 숨김)
-================================ */
+/* ==================================
+   RENDER — 잔여시간 없는 코트 숨김
+================================== */
 function render() {
     const gu = document.querySelector("#filter-gu .active").dataset.gu;
     const courtGroup = document.getElementById("filter-court").value;
@@ -484,15 +493,12 @@ function render() {
         if (gu !== "all" && !loc.includes(gu)) continue;
 
         const days = AVAIL[rid] || {};
+        let filtered = Object.keys(days);
 
-        let filteredDays = Object.keys(days);
-        if (selectedDate) filteredDays = filteredDays.filter(d => d === selectedDate);
+        if (selectedDate) filtered = filtered.filter(d => d === selectedDate);
 
-        // -------------------------------
-        // ⭐ 중요한 부분: 잔여 시간이 하나도 없으면 숨김
-        // -------------------------------
-        const hasAnySlot = filteredDays.some(date => days[date].length > 0);
-        if (!hasAnySlot) continue;
+        const hasSlots = filtered.some(d => days[d].length > 0);
+        if (!hasSlots) continue;
 
 
 
@@ -502,7 +508,7 @@ function render() {
             <div class="court-location">${FACILITIES[rid].location}</div>
         `;
 
-        filteredDays.forEach(dk => {
+        for (let dk of filtered) {
             html += `
             <div class="date-section">
                 <div class="date-header">${formatKoreanDate(dk)}</div>
@@ -513,7 +519,7 @@ function render() {
             });
 
             html += `</div>`;
-        });
+        }
 
         html += `</div>`;
     }
@@ -523,9 +529,9 @@ function render() {
 
 
 
-/* ================================
+/* ==================================
    FILTER EVENTS
-================================ */
+================================== */
 document.querySelectorAll("#filter-gu button").forEach(btn =>
     btn.addEventListener("click", () => {
         [...btn.parentElement.children].forEach(b => b.classList.remove("active"));
