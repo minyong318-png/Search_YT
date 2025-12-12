@@ -3,12 +3,12 @@ import threading
 import json
 import os
 import time
-from datetime import datetime
+from datetime import datetime,timedelta, timezone
 from tennis_core import run_all
 
 app = Flask(__name__)
 
-
+KST = timezone(timedelta(hours=9))
 
 # --------------------------
 # 캐시 생성 / 갱신
@@ -24,7 +24,7 @@ def refresh_cache():
         cache = {
             "facilities": facilities,
             "availability": availability,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.now(KST).isoformat()
         }
 
         with open(CACHE_FILE, "w", encoding="utf-8") as f:
@@ -67,6 +67,10 @@ def get_data():
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
             cache = json.load(f)
 
+    # updated_at 누락 시 KST로 생성
+    if "updated_at" not in cache:
+        cache["updated_at"] = datetime.now(KST).isoformat()
+        
     return jsonify(cache)
 
 
@@ -76,7 +80,7 @@ def refresh():
         refresh_cache()
         return jsonify({
             "status": "success",
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.now(KST).isoformat()
         })
     except Exception as e:
         return jsonify({
