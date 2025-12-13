@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>용인 테니스 알림</title>
+
+<style>
+:root {
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --primary: #5b6cff;
+  --text: #111;
+  --sub: #666;
+  --border: #e6e8ef;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont;
+  background: var(--bg);
+}
+
+.container {
+  max-width: 720px;
+  margin: auto;
+  padding: 20px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+  margin-bottom: 16px;
+}
+
+h2 {
+  margin: 0 0 10px;
+}
+
+label {
+  font-size: 14px;
+  color: var(--sub);
+}
+
+select, input, button {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font-size: 15px;
+}
+
+button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  margin-top: 12px;
+  font-weight: 600;
+}
+
+.status {
+  font-size: 13px;
+  color: var(--sub);
+  margin-bottom: 10px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="card">
+    <h2>🎾 테니스 예약 알림</h2>
+    <div class="status" id="update">업데이트 확인 중...</div>
+
+    <label>테니스장</label>
+    <select id="court"></select>
+
+    <label style="margin-top:10px;">날짜</label>
+    <input type="date" id="date"/>
+
+    <button onclick="addAlarm()">알림 등록</button>
+  </div>
+
+  <div class="card">
+    <h2>📌 내 알림</h2>
+    <div id="alarms"></div>
+  </div>
+
+</div>
+
+<script>
+let DATA = null;
+
+async function load() {
+  const res = await fetch("/data");
+  DATA = await res.json();
+
+  document.getElementById("update").innerText =
+    "마지막 업데이트: " + new Date(DATA.updated_at).toLocaleString();
+
+  const court = document.getElementById("court");
+  court.innerHTML = "";
+
+  Object.values(DATA.facilities).forEach(f => {
+    const opt = document.createElement("option");
+    opt.value = f.group;
+    opt.innerText = f.group;
+    court.appendChild(opt);
+  });
+
+  loadAlarms();
+}
+
+async function loadAlarms() {
+  const res = await fetch("/alarm/list");
+  const list = await res.json();
+  const box = document.getElementById("alarms");
+  box.innerHTML = list.map(a =>
+    `<div>${a.court} · ${a.date}</div>`
+  ).join("");
+}
+
+async function addAlarm() {
+  await fetch("/alarm/add", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      court: court.value,
+      date: date.value
+    })
+  });
+  loadAlarms();
+}
+
+load();
+</script>
+</body>
+</html>

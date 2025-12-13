@@ -1,5 +1,0 @@
-Flask==3.0.0
-aiohttp
-beautifulsoup4
-gunicorn
-requests
