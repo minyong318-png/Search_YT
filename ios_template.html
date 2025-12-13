@@ -2,68 +2,138 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>용인 테니스 알림</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>테니스 예약 현황</title>
 
 <style>
 :root {
-  --bg: #f4f6fb;
+  --bg: #f5f7fb;
   --card: #ffffff;
-  --primary: #5b6cff;
-  --text: #111;
-  --sub: #666;
-  --border: #e6e8ef;
+  --text: #111827;
+  --sub: #6b7280;
+  --primary: #5b6dff;
+  --border: #e5e7eb;
+  --radius: 18px;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont;
-  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  background: linear-gradient(180deg, #eef2ff, #f9fafb);
+  color: var(--text);
 }
 
 .container {
-  max-width: 720px;
-  margin: auto;
-  padding: 20px;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 24px 16px 120px;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.sub {
+  font-size: 13px;
+  color: var(--sub);
+  margin-bottom: 24px;
 }
 
 .card {
   background: var(--card);
-  border-radius: 18px;
-  padding: 20px;
+  border-radius: var(--radius);
   box-shadow: 0 10px 30px rgba(0,0,0,.08);
-  margin-bottom: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
 }
 
-h2 {
-  margin: 0 0 10px;
+/* 예약 현황 */
+.court-card {
+  margin-bottom: 22px;
 }
 
-label {
-  font-size: 14px;
-  color: var(--sub);
+.court-title {
+  font-size: 17px;
+  font-weight: 700;
 }
 
-select, input, button {
-  width: 100%;
-  padding: 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  font-size: 15px;
-}
-
-button {
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  margin-top: 12px;
-  font-weight: 600;
-}
-
-.status {
+.court-loc {
   font-size: 13px;
   color: var(--sub);
   margin-bottom: 10px;
+}
+
+.date-box {
+  background: #f9fafb;
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.date-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.slot {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  background: white;
+}
+
+/* 알람 */
+.alarm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+select, input[type="date"] {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+}
+
+button {
+  padding: 12px 18px;
+  border-radius: 14px;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.footer {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  background: white;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.12);
 }
 </style>
 </head>
@@ -71,71 +141,124 @@ button {
 <body>
 <div class="container">
 
+  <h1>🎾 테니스 예약 현황</h1>
+  <div class="sub" id="updatedAt">업데이트 확인 중…</div>
+
+  <!-- 예약 현황 -->
   <div class="card">
-    <h2>🎾 테니스 예약 알림</h2>
-    <div class="status" id="update">업데이트 확인 중...</div>
-
-    <label>테니스장</label>
-    <select id="court"></select>
-
-    <label style="margin-top:10px;">날짜</label>
-    <input type="date" id="date"/>
-
-    <button onclick="addAlarm()">알림 등록</button>
+    <h2 style="margin-top:0">예약 가능 현황</h2>
+    <div id="courts">불러오는 중…</div>
   </div>
 
+  <!-- 알람 -->
   <div class="card">
-    <h2>📌 내 알림</h2>
-    <div id="alarms"></div>
+    <h2 style="margin-top:0">🔔 알람 등록</h2>
+    <div class="alarm-grid">
+      <select id="alarmCourt">
+        <option>불러오는 중…</option>
+      </select>
+      <input type="date" id="alarmDate" />
+      <button id="alarmBtn">알림 등록</button>
+    </div>
+    <div class="sub" style="margin-top:8px">
+      오늘 날짜는 제외되며, 이미 지난 알람은 자동 삭제됩니다.
+    </div>
   </div>
 
 </div>
 
+<div class="footer">데이터 자동 갱신 중</div>
+
 <script>
 let DATA = null;
 
-async function load() {
+async function loadData() {
   const res = await fetch("/data");
   DATA = await res.json();
 
-  document.getElementById("update").innerText =
-    "마지막 업데이트: " + new Date(DATA.updated_at).toLocaleString();
-
-  const court = document.getElementById("court");
-  court.innerHTML = "";
-
-  Object.values(DATA.facilities).forEach(f => {
-    const opt = document.createElement("option");
-    opt.value = f.group;
-    opt.innerText = f.group;
-    court.appendChild(opt);
-  });
-
-  loadAlarms();
+  renderUpdated();
+  renderCourts();
+  renderAlarmSelect();
 }
 
-async function loadAlarms() {
-  const res = await fetch("/alarm/list");
-  const list = await res.json();
-  const box = document.getElementById("alarms");
-  box.innerHTML = list.map(a =>
-    `<div>${a.court} · ${a.date}</div>`
-  ).join("");
+function renderUpdated() {
+  if (!DATA.updated_at) {
+    document.getElementById("updatedAt").textContent = "업데이트 준비 중…";
+    return;
+  }
+  const d = new Date(DATA.updated_at);
+  document.getElementById("updatedAt").textContent =
+    "마지막 업데이트: " + d.toLocaleString("ko-KR");
 }
 
-async function addAlarm() {
-  await fetch("/alarm/add", {
+function renderCourts() {
+  const wrap = document.getElementById("courts");
+  wrap.innerHTML = "";
+
+  const fac = DATA.facilities;
+  const avail = DATA.availability;
+
+  for (const id in fac) {
+    const days = avail[id];
+    if (!days) continue;
+
+    let hasSlot = false;
+    for (const k in days) {
+      if (days[k].length) hasSlot = true;
+    }
+    if (!hasSlot) continue;
+
+    let html = `
+      <div class="court-card">
+        <div class="court-title">${fac[id].title}</div>
+        <div class="court-loc">${fac[id].location || ""}</div>
+    `;
+
+    for (const date in days) {
+      if (!days[date].length) continue;
+      html += `<div class="date-box">
+        <div class="date-title">${formatDate(date)}</div>
+        <div class="slots">
+      `;
+      days[date].forEach(s => {
+        html += `<div class="slot">${s.timeContent}</div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    html += `</div>`;
+    wrap.innerHTML += html;
+  }
+}
+
+function renderAlarmSelect() {
+  const sel = document.getElementById("alarmCourt");
+  sel.innerHTML = `<option value="">테니스장 선택</option>`;
+  for (const id in DATA.facilities) {
+    const name = DATA.facilities[id].title.replace(/\[.*?\]/g, "").trim();
+    sel.innerHTML += `<option value="${name}">${name}</option>`;
+  }
+}
+
+function formatDate(str) {
+  return `${str.slice(4,6)}.${str.slice(6,8)}`;
+}
+
+document.getElementById("alarmBtn").onclick = async () => {
+  const court = alarmCourt.value;
+  const date = alarmDate.value;
+  if (!court || !date) return alert("모두 선택하세요");
+
+  await fetch("/alarm", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      court: court.value,
-      date: date.value
-    })
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ court, date })
   });
-  loadAlarms();
-}
 
-load();
+  alert("알람 등록 완료");
+};
+
+loadData();
 </script>
 </body>
 </html>
