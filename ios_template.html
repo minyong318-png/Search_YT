@@ -349,7 +349,7 @@ function renderCourts(){
 }
 
 async function loadAlarms(){
-  const res = await fetch("/alarm/list");
+  const res = await fetch("/alarm/list",{ credentials: "same-origin" });
   const list = await res.json();
 
   if (!list.length) {
@@ -399,6 +399,7 @@ alarmBtn.onclick = async () => {
 
   const res = await fetch("/alarm/add", {
     method: "POST",
+    credentials: "same-origin",   // 🔥 중요
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       court_group: alarmCourt.value,
