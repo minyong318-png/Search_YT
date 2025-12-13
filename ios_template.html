@@ -218,7 +218,9 @@ button{
   <!-- 데이터 -->
   <div class="card">
     <h3>예약 가능 현황</h3>
-    <div id="courts">불러오는 중…</div>
+    <div id="courts">
+      ⏳ 예약 정보를 불러오는 중입니다…
+    </div>
   </div>
 
 </div>
@@ -259,15 +261,49 @@ function getWeekday(yyyymmdd){
   return ["일","월","화","수","목","금","토"][d.getDay()];
 }
 
-async function loadData(){
-  const res = await fetch("/data");
-  DATA = await res.json();
-  renderUpdated();
-  buildCourtGroups();
-  renderCourts();
-  loadAlarms();
-  loadMe();
+let retryTimer = null;
+let retryCount = 0;
+
+async function loadData() {
+  try {
+    const res = await fetch("/data", {
+      credentials: "same-origin"
+    });
+    const data = await res.json();
+
+    // 아직 데이터 준비 안 됨
+    if (!data.facilities || Object.keys(data.facilities).length === 0) {
+      throw new Error("data not ready");
+    }
+
+    // ✅ 정상 데이터 도착
+    clearInterval(retryTimer);
+    retryTimer = null;
+
+    FACILITIES = data.facilities;
+    AVAIL = data.availability || {};
+
+    renderUpdatedTime(data.updated_at);
+    buildCourtGroups();
+    renderCourts();
+    loadAlarms();
+
+  } catch (e) {
+    // 최초 로딩 안내
+    if (retryCount === 0) {
+      document.getElementById("courts").innerHTML =
+        "⏳ 예약 정보를 불러오는 중입니다…";
+    }
+
+    retryCount++;
+
+    // 재시도 시작 (한 번만)
+    if (!retryTimer) {
+      retryTimer = setInterval(loadData, 5000); // 5초마다 재시도
+    }
+  }
 }
+
 
 function renderUpdated(){
   if(!DATA.updated_at){
