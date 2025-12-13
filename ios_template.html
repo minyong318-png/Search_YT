@@ -228,12 +228,11 @@ let COURT_GROUPS = {};
 
 function getCourtGroup(title){
   return title
-    .replace(/\[.*?\]/g, "")        // [유료] 제거
-    .replace(/\(.*?\)/g, "")        // (1코트), (장애인코트) 제거
-    .replace(/_.*$/, "")             // _12월 같은 뒤 문자열 제거
-    .replace(/테니스장/g, "")        // '테니스장' 제거
+    .replace(/\[.*?\]/g, "")   // [유료] 제거
+    .split("테니스장")[0]      // '테니스장' 앞까지만 사용
     .trim();
 }
+
 
 
 function getWeekday(yyyymmdd){
