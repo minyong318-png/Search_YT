@@ -269,18 +269,20 @@ async function loadData() {
     const res = await fetch("/data", {
       credentials: "same-origin"
     });
-    const data = await res.json();
 
-    // 아직 데이터 준비 안 됨
-    if (!data.facilities || Object.keys(data.facilities).length === 0) {
-      throw new Error("data not ready");
+    if (!res.ok) {
+      throw new Error("network error");
     }
 
-    // ✅ 정상 데이터 도착
-    clearInterval(retryTimer);
-    retryTimer = null;
+    const data = await res.json();
 
-    FACILITIES = data.facilities;
+    // 🚨 data 자체가 없을 때만 재시도
+    if (!data || typeof data !== "object") {
+      throw new Error("invalid data");
+    }
+
+    // ✅ 여기부터는 무조건 한 번 렌더링 시도
+    FACILITIES = data.facilities || {};
     AVAIL = data.availability || {};
 
     renderUpdatedTime(data.updated_at);
@@ -288,8 +290,15 @@ async function loadData() {
     renderCourts();
     loadAlarms();
 
+    // 성공하면 재시도 중단
+    if (retryTimer) {
+      clearInterval(retryTimer);
+      retryTimer = null;
+    }
+
   } catch (e) {
-    // 최초 로딩 안내
+    console.warn("[loadData retry]", e);
+
     if (retryCount === 0) {
       document.getElementById("courts").innerHTML =
         "⏳ 예약 정보를 불러오는 중입니다…";
@@ -297,11 +306,19 @@ async function loadData() {
 
     retryCount++;
 
-    // 재시도 시작 (한 번만)
-    if (!retryTimer) {
-      retryTimer = setInterval(loadData, 5000); // 5초마다 재시도
+    if (!retryTimer && retryCount < 20) {
+      retryTimer = setInterval(loadData, 5000); // 5초 재시도
     }
   }
+}
+
+function renderUpdatedTime(ts){
+  if (!ts) {
+    updatedAt.textContent = "업데이트 대기 중";
+    return;
+  }
+  const time = ts.split(" ")[1]?.slice(0,5);
+  updatedAt.textContent = `마지막 업데이트 · ${time}`;
 }
 
 

@@ -252,18 +252,13 @@ def test_kakao():
     if not user:
         return "사용자 정보 없음", 400
 
-    def delayed_send():
-        time.sleep(60)  # 1분 대기
-        send_kakao_message(
-            user["access_token"],
-            f"🧪 테스트 메시지\n"
-            f"시간: {datetime.now().strftime('%H:%M:%S')}\n\n"
-            f"카카오 알림 정상 동작 중입니다."
-        )
+    send_kakao_message(
+        user["access_token"],
+        "🧪 카카오 알림 테스트\n정상적으로 메시지가 전송되었습니다."
+    )
 
-    threading.Thread(target=delayed_send).start()
+    return "테스트 메시지를 즉시 전송했습니다."
 
-    return "1분 후 테스트 카카오톡을 전송합니다."
 #==========================
 # 카카오 메시지 전송 함수  
 #==========================
@@ -288,49 +283,59 @@ def send_kakao_message(access_token, text):
 def detect_new_slots(facilities, availability):
     import json, os
 
-    # 이전 알림 기록
-    sent = {}
-    if os.path.exists("last_slots.json"):
-        with open("last_slots.json", "r", encoding="utf-8") as f:
-            sent = json.load(f)
+    def safe_load(path):
+        if not os.path.exists(path):
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+        except (json.JSONDecodeError, ValueError):
+            return {}
 
-    # baseline
-    baseline = {}
-    if os.path.exists("alarm_baseline.json"):
-        with open("alarm_baseline.json", "r", encoding="utf-8") as f:
-            baseline = json.load(f)
+    # 이전 발송 기록
+    sent = safe_load("last_slots.json")
+
+    # 알람 기준선
+    baseline = safe_load("alarm_baseline.json")
 
     new_slots = []
 
     for cid, days in availability.items():
-        title = facilities[cid]["title"]
+        title = facilities.get(cid, {}).get("title", "")
 
         for date, slots in days.items():
             for s in slots:
                 key = f"{cid}|{date}|{s['timeContent']}"
 
-                # ❌ 이미 baseline에 있으면 무시
-                for user_base in baseline.values():
-                    if key in user_base:
-                        break
-                else:
-                    # ❌ 이미 알림 보냈으면 무시
-                    if key in sent:
-                        continue
+                # 1️⃣ baseline에 있으면 무시
+                if any(
+                    isinstance(user_base, dict) and key in user_base
+                    for user_base in baseline.values()
+                ):
+                    continue
 
-                    new_slots.append({
-                        "key": key,
-                        "court_title": title,
-                        "date": date,
-                        "time": s["timeContent"]
-                    })
+                # 2️⃣ 이미 알림 보냈으면 무시
+                if key in sent:
+                    continue
 
+                # 3️⃣ 새 슬롯
+                new_slots.append({
+                    "key": key,
+                    "court_title": title,
+                    "date": date,
+                    "time": s["timeContent"]
+                })
+
+                # sent는 여기서만 기록
                 sent[key] = True
 
+    # sent 저장 (항상 JSON 보장)
     with open("last_slots.json", "w", encoding="utf-8") as f:
         json.dump(sent, f, ensure_ascii=False, indent=2)
 
     return new_slots
+
 
 
 def load_users():
