@@ -3,561 +3,525 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
 <title>용인 테니스 예약 현황</title>
 
 <style>
-/* ================================
-   COLOR THEME — Toss / NPay Style
-================================ */
-:root {
-    --bg: #f7f8fa;
-    --card: #ffffff;
-    --text: #1a1a1c; 
-    --sub: #6e6e73;
-    --light: #a9a9ac;
-    --accent: #0064ff;   /* Toss Blue */
-    --border: #e5e5ea;
-    --radius: 18px;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #000000;
-        --card: #1b1b1d;
-        --text: #f2f2f7;
-        --sub: #a1a1aa;
-        --light: #77777c;
-        --accent: #4da3ff;
-        --border: rgba(255,255,255,0.18);
+  :root{
+    --bg:#0b0c10;
+    --card:#12141a;
+    --card2:#141824;
+    --text:#f5f7ff;
+    --sub:#a9b0c3;
+    --line:rgba(255,255,255,.10);
+    --brand:#5b8cff;
+    --brand2:#7c5cff;
+    --ok:#20d3a7;
+    --warn:#ffcc00;
+    --danger:#ff5b6e;
+    --radius:18px;
+    --shadow: 0 14px 40px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f4f6fb;
+      --card:#ffffff;
+      --card2:#fbfcff;
+      --text:#111323;
+      --sub:#5d6478;
+      --line:rgba(17,19,35,.10);
+      --shadow: 0 14px 40px rgba(20,30,60,.10);
     }
-}
+  }
 
-body {
-    background: var(--bg);
-    color: var(--text);
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "SF Pro Text";
-}
+  body{
+    margin:0;
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display","SF Pro Text";
+    background: radial-gradient(1200px 600px at 20% -10%, rgba(91,140,255,.35), transparent 60%),
+                radial-gradient(900px 600px at 100% 0%, rgba(124,92,255,.25), transparent 60%),
+                var(--bg);
+    color:var(--text);
+  }
 
-/* ================================
-   NAVIGATION BAR
-================================ */
-.navbar {
-    position: sticky;
-    top: 0;
-    background: var(--bg);
-    padding: 16px;
-    font-size: 20px;
-    font-weight: 700;
-    border-bottom: 1px solid var(--border);
-    text-align: center;
-}
+  .topbar{
+    position:sticky; top:0; z-index:9;
+    backdrop-filter:saturate(160%) blur(14px);
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    border-bottom:1px solid var(--line);
+    padding:14px 14px 10px;
+  }
 
-/* ================================
-   UPDATE TIME + ICON
-================================ */
-.update-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-    margin-bottom: 10px;
-    color: var(--sub);
-}
+  .title{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px;
+  }
+  .brand{
+    font-size:18px; font-weight:800; letter-spacing:-.2px;
+  }
+  .meta{
+    font-size:12px; color:var(--sub);
+    display:flex; align-items:center; gap:8px;
+  }
+  .dot{
+    width:8px; height:8px; border-radius:999px; background:var(--ok);
+    box-shadow:0 0 0 6px rgba(32,211,167,.12);
+  }
 
-.update-icon {
-    width: 14px;
-    height: 14px;
-    border: 2px solid var(--sub);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
+  .container{ max-width:980px; margin:0 auto; padding:14px; }
 
-/* ================================
-   FILTERS
-================================ */
-.segment {
-    display: flex;
-    gap: 8px;
-    margin: 14px;
-}
-
-.segment button {
-    flex: 1;
-    padding: 10px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--sub);
-    transition: 0.2s;
-}
-
-.segment button.active {
-    background: var(--accent);
-    color: white;
-}
-
-.filter-block {
-    margin: 12px 14px;
-}
-
-.filter-block select,
-#open-calendar {
-    width: 100%;
-    padding: 14px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text);
-}
-
-/* ================================
-   COURT CARD
-================================ */
-.court-card {
-    background: var(--card);
-    margin: 16px;
-    padding: 20px;
+  .card{
+    background: linear-gradient(180deg, color-mix(in srgb, var(--card) 92%, transparent), var(--card2));
+    border:1px solid var(--line);
+    box-shadow: var(--shadow);
     border-radius: var(--radius);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
-    border: 1px solid var(--border);
-}
+    overflow:hidden;
+  }
 
-.court-title {
-    font-size: 18px;
-    font-weight: 700;
-    margin-bottom: 4px;
-}
+  .row{ display:flex; gap:12px; flex-wrap:wrap; }
+  .p14{ padding:14px; }
 
-.court-location {
-    font-size: 14px;
-    color: var(--sub);
-    margin-bottom: 14px;
-}
+  .btn{
+    border:0; cursor:pointer;
+    padding:10px 12px; border-radius:14px;
+    font-weight:700; font-size:13px;
+    color:var(--text);
+    background: rgba(255,255,255,.08);
+    border:1px solid var(--line);
+  }
+  .btn.primary{
+    background: linear-gradient(135deg, var(--brand), var(--brand2));
+    border:0;
+  }
+  .btn.danger{
+    background: rgba(255,91,110,.14);
+    border:1px solid rgba(255,91,110,.35);
+    color: color-mix(in srgb, var(--text) 92%, #ff5b6e);
+  }
 
-.date-section {
-    margin-bottom: 12px;
-    background: rgba(0,0,0,0.04);
-    padding: 12px;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-}
+  .seg{
+    display:flex; gap:8px; flex-wrap:wrap;
+  }
+  .seg button{
+    flex:1;
+    min-width:86px;
+    padding:10px 12px;
+    border-radius:14px;
+    border:1px solid var(--line);
+    background: rgba(255,255,255,.06);
+    color:var(--text);
+    font-weight:800;
+    font-size:13px;
+    letter-spacing:-.2px;
+  }
+  .seg button.active{
+    background: linear-gradient(135deg, rgba(91,140,255,.25), rgba(124,92,255,.18));
+    border-color: rgba(91,140,255,.55);
+  }
 
-.date-header {
-    font-size: 14px;
-    font-weight: 700;
-    margin-bottom: 8px;
-}
+  select, input[type="date"]{
+    width:100%;
+    padding:12px 12px;
+    border-radius:14px;
+    border:1px solid var(--line);
+    background: rgba(255,255,255,.06);
+    color:var(--text);
+    outline:none;
+    font-weight:700;
+  }
+  option{ color:#111; }
 
-.time-slot {
-    background: var(--card);
-    padding: 7px 12px;
-    display: inline-block;
-    margin: 4px;
-    border-radius: 10px;
-    font-size: 13px;
-    border: 1px solid var(--border);
-}
+  .hint{ font-size:12px; color:var(--sub); line-height:1.35; }
 
-/* ================================
-   BOTTOM SHEET CALENDAR (iOS Style)
-================================ */
-.calendar-sheet {
-    position: fixed;
-    bottom: -440px;
-    left: 0;
-    right: 0;
-    background: var(--card);
-    border-radius: 24px 24px 0 0;
-    padding: 20px 20px 30px 20px;
-    box-shadow: 0 -6px 30px rgba(0,0,0,0.3);
-    transition: 0.35s ease;
-    z-index: 9999;
-}
+  .divider{ height:1px; background:var(--line); }
 
-.calendar-sheet.show {
-    bottom: 0;
-}
+  /* courts */
+  .court-card{
+    margin-top:12px;
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    border:1px solid var(--line);
+    overflow:hidden;
+  }
+  .court-head{
+    display:flex; justify-content:space-between; gap:12px;
+    padding:14px;
+    background: linear-gradient(135deg, rgba(91,140,255,.18), rgba(124,92,255,.10));
+    border-bottom:1px solid var(--line);
+  }
+  .court-title{ font-size:16px; font-weight:900; letter-spacing:-.2px; }
+  .court-loc{ font-size:12px; color:var(--sub); margin-top:4px; }
 
-.calendar-handle {
-    width: 44px;
-    height: 5px;
-    background: rgba(120,120,120,0.28);
-    border-radius: 3px;
-    margin: 0 auto 16px auto;
-}
+  .date-block{ padding:12px 14px; }
+  .date-head{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .date-text{
+    font-weight:900; font-size:14px;
+  }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:9px 12px;
+    border-radius:999px;
+    background: rgba(255,255,255,.08);
+    border:1px solid var(--line);
+    font-weight:900;
+    font-size:13px;
+  }
 
-.calendar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 14px;
-}
+  /* loader */
+  .loader-wrap{
+    display:none;
+    padding:18px;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    color:var(--sub);
+  }
+  .spinner{
+    width:18px; height:18px;
+    border-radius:999px;
+    border:2px solid rgba(255,255,255,.18);
+    border-top-color: rgba(91,140,255,.9);
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to { transform: rotate(360deg);} }
 
-.month-btn {
-    font-size: 20px;
-    padding: 4px 12px;
-    cursor: pointer;
-    color: var(--sub);
-}
+  /* alerts list */
+  .alert-item{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 14px;
+    border-top:1px solid var(--line);
+  }
+  .alert-item:first-child{ border-top:0; }
+  .alert-left .a1{ font-weight:900; }
+  .alert-left .a2{ font-size:12px; color:var(--sub); margin-top:2px; }
 
-.calendar-title {
-    font-size: 18px;
-    font-weight: 700;
-}
-
-.weekdays {
-    display: grid;
-    grid-template-columns: repeat(7,1fr);
-    text-align: center;
-    font-size: 13px;
-    color: var(--sub);
-    margin-bottom: 6px;
-}
-
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7,1fr);
-    gap: 6px;
-}
-
-.cal-day {
-    padding: 10px 0;
-    font-size: 14px;
-    text-align: center;
-    border-radius: 10px;
-    background: rgba(255,255,255,0.05);
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-.cal-day:hover {
-    background: var(--accent);
-    color: white;
-}
-
-.cal-day.selected {
-    background: var(--accent);
-    color: white;
-    font-weight: 700;
-}
-
-.calendar-close {
-    margin-top: 18px;
-    width: 100%;
-    padding: 12px;
-    background: var(--accent);
-    color: white;
-    font-weight: 700;
-    border-radius: 12px;
-    text-align: center;
-    cursor: pointer;
-}
+  .small{ font-size:12px; color:var(--sub); }
 </style>
 </head>
 
-
-
 <body>
+  <div class="topbar">
+    <div class="title">
+      <div class="brand">용인 테니스 예약 현황</div>
+      <div class="meta"><span class="dot"></span><span id="updated">업데이트 확인 중…</span></div>
+    </div>
+  </div>
 
-<div class="navbar">용인 테니스 예약 현황</div>
+  <div class="container">
 
-<div class="update-row">
-    <div class="update-icon"></div>
-    <div id="updated-time">업데이트 시간 계산 중...</div>
-</div>
+    <!-- LOGIN + ALERT PANEL -->
+    <div class="card">
+      <div class="p14">
+        <div class="row" style="align-items:flex-start;">
+          <div style="flex:1; min-width:260px;">
+            <div style="font-weight:900; font-size:15px;">카카오 알림</div>
+            <div class="hint" style="margin-top:6px;">
+              원하는 <b>테니스장(그룹)</b>과 <b>날짜</b>를 등록하면, 새 예약 시간이 뜨는 순간 카카오톡으로 알림을 보냅니다.<br/>
+              <b>지난 날짜 알림은 서버에서 자동 삭제</b>됩니다.
+            </div>
+          </div>
 
-<!-- 구 필터 -->
-<div class="segment" id="filter-gu">
-    <button data-gu="all" class="active">전체</button>
-    <button data-gu="처인구">처인구</button>
-    <button data-gu="기흥구">기흥구</button>
-    <button data-gu="수지구">수지구</button>
-</div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button id="loginBtn" class="btn primary">카카오로 알림 받기</button>
+            <button id="logoutBtn" class="btn" style="display:none;">로그아웃</button>
+          </div>
+        </div>
 
-<!-- 날짜 필터 -->
-<div class="filter-block">
-    <button id="open-calendar">날짜 선택하기</button>
-</div>
+        <div class="divider" style="margin:14px 0;"></div>
 
-<!-- 테니스장 그룹 필터 -->
-<div class="filter-block">
-    <select id="filter-court">
-        <option value="all">전체 테니스장</option>
-    </select>
-</div>
+        <div id="loggedBox" style="display:none;">
+          <div class="small">로그인: <b id="nick"></b></div>
 
-<div id="content"></div>
+          <div class="row" style="margin-top:12px;">
+            <div style="flex:1; min-width:220px;">
+              <div class="small" style="margin-bottom:6px;">테니스장(그룹)</div>
+              <select id="groupSelect">
+                <option value="">불러오는 중…</option>
+              </select>
+            </div>
 
+            <div style="flex:1; min-width:220px;">
+              <div class="small" style="margin-bottom:6px;">날짜 선택</div>
+              <input type="date" id="datePick" />
+              <div class="hint" style="margin-top:6px;">오늘은 제외(예약 불가) → <b>내일부터만</b> 등록 가능</div>
+            </div>
 
+            <div style="min-width:160px; display:flex; align-items:flex-end;">
+              <button id="addAlertBtn" class="btn primary" style="width:100%;">알림 등록</button>
+            </div>
+          </div>
 
-<!-- ===========================
-      BOTTOM SHEET CALENDAR
-============================ -->
-<div id="calendar-sheet" class="calendar-sheet">
-    <div class="calendar-handle"></div>
+          <div class="divider" style="margin:14px 0;"></div>
 
-    <div class="calendar-header">
-        <div id="prev-month" class="month-btn">◀</div>
-        <div id="month-title" class="calendar-title">2월 2025</div>
-        <div id="next-month" class="month-btn">▶</div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-weight:900;">내 알림 목록</div>
+            <button id="reloadAlerts" class="btn">새로고침</button>
+          </div>
+
+          <div id="alertsList" style="margin-top:8px;"></div>
+        </div>
+
+        <div id="notLoggedBox" class="hint" style="margin-top:10px;">
+          로그인하면 <b>사용자별</b>로 알림을 저장하고, 예약 발생 시 <b>본인에게만</b> 카카오톡 알림을 보냅니다.
+        </div>
+      </div>
     </div>
 
-    <div class="weekdays">
-        <div>일</div><div>월</div><div>화</div>
-        <div>수</div><div>목</div><div>금</div><div>토</div>
+    <!-- LOADER -->
+    <div class="card" style="margin-top:12px;">
+      <div class="loader-wrap" id="loader">
+        <div class="spinner"></div>
+        <div>테니스장 예약 정보를 불러오는 중…</div>
+      </div>
+      <div id="content" class="p14"></div>
     </div>
 
-    <div id="calendar-grid" class="calendar-grid"></div>
-
-    <div id="close-calendar" class="calendar-close">닫기</div>
-</div>
-
-
+  </div>
 
 <script>
-/* ==================================
-   TIME AGO (업데이트 시간)
-================================== */
-function timeAgo(ts) {
-    const now = new Date();
-    const past = new Date(ts);
-
-    if (isNaN(past.getTime())) return "방금 전 업데이트됨";
-
-    const diff = (now - past) / 1000;
-
-    if (diff < 60) return "방금 전 업데이트됨";
-    if (diff < 3600) return `${Math.floor(diff/60)}분 전 업데이트됨`;
-    if (diff < 86400) return `${Math.floor(diff/3600)}시간 전 업데이트됨`;
-    return `${Math.floor(diff/86400)}일 전 업데이트됨`;
-}
-
-
-
-/* ==================================
-   DATA LOAD
-================================== */
 let FACILITIES = {};
 let AVAIL = {};
-let ridToGroup = {};
-let selectedDate = null;
+let GROUPS = [];
 
-async function loadData() {
-    const res = await fetch("/data");
-    const data = await res.json();
+const $ = (id) => document.getElementById(id);
 
-    FACILITIES = data.facilities || {};
-    AVAIL = data.availability || {};
+function yyyymmdd(dateObj){
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth()+1).padStart(2,'0');
+  const d = String(dateObj.getDate()).padStart(2,'0');
+  return `${y}${m}${d}`;
+}
 
-    const updatedBox = document.getElementById("updated-time");
+function toISO(dateObj){
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth()+1).padStart(2,'0');
+  const d = String(dateObj.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
 
-    if (data.updated_at && !isNaN(new Date(data.updated_at))) {
-        const abs = new Date(data.updated_at);
+// title -> group (ex: [유료]남사 테니스장_12월  => "남사")
+function normalizeGroup(title){
+  if(!title) return "";
+  let t = title.replace(/^\[[^\]]+\]\s*/g, "").trim(); // remove [유료]
+  // remove suffix after "_" (ex: _12월)
+  t = t.split("_")[0].trim();
+  if(t.includes("테니스장")){
+    const before = t.split("테니스장")[0].trim();
+    const parts = before.split(/\s+/);
+    return parts[parts.length-1] || before;
+  }
+  // fallback: first word
+  return t.split(/\s+/)[0];
+}
 
-        updatedBox.textContent =
-            `${timeAgo(data.updated_at)} · ${abs.toLocaleString("ko-KR", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit"
-            })}`;
-    } else {
-        updatedBox.textContent = "업데이트 기록 없음";
+function weekdayKR(iso){
+  // iso: YYYY-MM-DD
+  const d = new Date(iso+"T00:00:00");
+  const w = ["일","월","화","수","목","금","토"][d.getDay()];
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${mm}.${dd} (${w})`;
+}
+
+function showLoader(on){
+  $("loader").style.display = on ? "flex" : "none";
+}
+
+async function fetchJSON(url){
+  const res = await fetch(url, {cache:"no-store"});
+  if(!res.ok) throw new Error(`${url} ${res.status}`);
+  return await res.json();
+}
+
+async function loadData(){
+  showLoader(true);
+  const data = await fetchJSON("/data");
+  FACILITIES = data.facilities || {};
+  AVAIL = data.availability || {};
+
+  // updated_at 표시
+  const up = data.updated_at || "";
+  if(up){
+    // ISO -> 로컬 표시
+    const dt = new Date(up);
+    $("updated").textContent = `업데이트: ${dt.toLocaleString("ko-KR")}`;
+  } else {
+    $("updated").textContent = "업데이트 정보 없음";
+  }
+
+  buildGroups();
+  renderCourts();
+
+  showLoader(false);
+}
+
+function buildGroups(){
+  const set = new Set();
+  for(const rid in FACILITIES){
+    set.add(normalizeGroup(FACILITIES[rid].title || ""));
+  }
+  GROUPS = Array.from(set).filter(Boolean).sort((a,b)=>a.localeCompare(b,"ko"));
+
+  const sel = $("groupSelect");
+  sel.innerHTML = `<option value="">그룹 선택</option>` + GROUPS.map(g=>`<option value="${g}">${g}</option>`).join("");
+}
+
+function renderCourts(){
+  let html = "";
+
+  // 내일부터 ~ (AVAIL already filtered by server crawling rule, but just in case)
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 86400000);
+  const minKey = yyyymmdd(tomorrow);
+
+  for(const rid in FACILITIES){
+    const f = FACILITIES[rid];
+    const days = AVAIL[rid] || {};
+
+    // 내일부터만, 그리고 슬롯 없는 날짜는 숨김
+    const keys = Object.keys(days).filter(k => k >= minKey && (days[k] || []).length > 0).sort();
+    if(keys.length === 0) continue;
+
+    html += `
+      <div class="court-card">
+        <div class="court-head">
+          <div>
+            <div class="court-title">${escapeHtml(f.title || "")}</div>
+            <div class="court-loc">${escapeHtml(f.location || "")}</div>
+          </div>
+        </div>
+    `;
+
+    for(const k of keys){
+      const iso = `${k.slice(0,4)}-${k.slice(4,6)}-${k.slice(6,8)}`;
+      const slots = days[k] || [];
+      if(slots.length === 0) continue;
+
+      html += `
+        <div class="date-block">
+          <div class="date-head">
+            <div class="date-text">${weekdayKR(iso)}</div>
+          </div>
+          <div class="chips">
+            ${slots.map(s => `<div class="chip">${escapeHtml(s.timeContent || "")}</div>`).join("")}
+          </div>
+        </div>
+      `;
     }
-    buildCourtFilter();
-    render();
+
+    html += `</div>`;
+  }
+
+  $("content").innerHTML = html || `<div class="hint">표시할 예약 가능 정보가 없습니다.</div>`;
 }
 
-
-
-/* ==================================
-   테니스장 그룹 필터
-================================== */
-function getGroupName(title) {
-    title = title.replace(/\[.*?\]/g, "");
-    title = title.replace(/_[0-9]+월/g, "");
-    const m = title.match(/(.+?)테니스장/);
-    return m ? m[1].trim() : title.trim();
+function escapeHtml(str){
+  return String(str)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
 }
 
-function buildCourtFilter() {
-    const sel = document.getElementById("filter-court");
-    const groups = new Set();
+// ---------- login state ----------
+async function syncMe(){
+  const me = await fetchJSON("/me");
+  if(me.logged_in){
+    $("loginBtn").style.display = "none";
+    $("logoutBtn").style.display = "inline-block";
+    $("loggedBox").style.display = "block";
+    $("notLoggedBox").style.display = "none";
+    $("nick").textContent = me.nickname || me.uid;
 
-    for (let rid in FACILITIES) {
-        const g = getGroupName(FACILITIES[rid].title);
-        ridToGroup[rid] = g;
-        groups.add(g);
-    }
+    // date picker min = tomorrow
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 86400000);
+    $("datePick").min = toISO(tomorrow);
+    $("datePick").value = toISO(tomorrow);
 
-    Array.from(groups).sort().forEach(g => {
-        const opt = document.createElement("option");
-        opt.value = g;
-        opt.textContent = g;
-        sel.appendChild(opt);
-    });
+    await loadAlerts();
+  } else {
+    $("loginBtn").style.display = "inline-block";
+    $("logoutBtn").style.display = "none";
+    $("loggedBox").style.display = "none";
+    $("notLoggedBox").style.display = "block";
+  }
 }
 
+async function loadAlerts(){
+  const res = await fetchJSON("/alerts");
+  const list = $("alertsList");
+  if(!res.logged_in){
+    list.innerHTML = "";
+    return;
+  }
 
+  const items = res.alerts || [];
+  if(items.length === 0){
+    list.innerHTML = `<div class="hint" style="padding:10px 0;">등록된 알림이 없습니다.</div>`;
+    return;
+  }
 
-/* ==================================
-   CALENDAR
-================================== */
-let current = new Date();
+  // sort by date asc
+  items.sort((a,b)=> (a.date||"").localeCompare(b.date||""));
 
-function renderCalendar() {
-    const y = current.getFullYear();
-    const m = current.getMonth();
-
-    document.getElementById("month-title").textContent = `${m+1}월 ${y}`;
-
-    const first = new Date(y, m, 1).getDay();
-    const last = new Date(y, m+1, 0).getDate();
-
-    const grid = document.getElementById("calendar-grid");
-    grid.innerHTML = "";
-
-    for (let i=0;i<first;i++) grid.innerHTML += "<div></div>";
-
-    for (let d=1; d<=last; d++) {
-        const key = `${y}${String(m+1).padStart(2,'0')}${String(d).padStart(2,'0')}`;
-
-        grid.innerHTML += `
-            <div class="cal-day ${selectedDate===key?"selected":""}"
-                 data-date="${key}">
-                ${d}
-            </div>
-        `;
-    }
-
-    document.querySelectorAll(".cal-day").forEach(day => {
-        day.onclick = () => {
-            selectedDate = day.dataset.date;
-            hideCalendar();
-            render();
-        };
-    });
+  list.innerHTML = items.map(it=>{
+    const iso = `${it.date.slice(0,4)}-${it.date.slice(4,6)}-${it.date.slice(6,8)}`;
+    return `
+      <div class="alert-item">
+        <div class="alert-left">
+          <div class="a1">${escapeHtml(it.group)}</div>
+          <div class="a2">${weekdayKR(iso)}</div>
+        </div>
+        <button class="btn danger" onclick="deleteAlert('${escapeHtml(it.group)}','${escapeHtml(it.date)}')">삭제</button>
+      </div>
+    `;
+  }).join("");
 }
 
-document.getElementById("prev-month").onclick = () => {
-    current.setMonth(current.getMonth()-1);
-    renderCalendar();
+async function deleteAlert(group, date){
+  await fetch("/alert/delete",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({group, date})
+  });
+  await loadAlerts();
+}
+
+$("loginBtn").onclick = () => location.href = "/auth/kakao";
+$("logoutBtn").onclick = () => location.href = "/logout";
+$("reloadAlerts").onclick = () => loadAlerts();
+
+$("addAlertBtn").onclick = async () => {
+  const group = $("groupSelect").value;
+  const iso = $("datePick").value; // YYYY-MM-DD
+  if(!group){ alert("테니스장(그룹)을 선택하세요."); return; }
+  if(!iso){ alert("날짜를 선택하세요."); return; }
+
+  const ymd = iso.replaceAll("-","");
+  const res = await fetch("/alert/register",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({group, date: ymd})
+  });
+
+  if(!res.ok){
+    const msg = await res.text();
+    alert("알림 등록 실패: " + msg);
+    return;
+  }
+  await loadAlerts();
+  alert("알림 등록 완료!");
 };
-document.getElementById("next-month").onclick = () => {
-    current.setMonth(current.getMonth()+1);
-    renderCalendar();
-};
 
-function showCalendar() {
-    document.getElementById("calendar-sheet").classList.add("show");
-    renderCalendar();
-}
-
-function hideCalendar() {
-    document.getElementById("calendar-sheet").classList.remove("show");
-}
-
-document.getElementById("open-calendar").onclick = showCalendar;
-document.getElementById("close-calendar").onclick = hideCalendar;
-
-
-
-/* ==================================
-   날짜 표시 변환
-================================== */
-function formatKoreanDate(key) {
-    const y = +key.substring(0,4);
-    const m = +key.substring(4,6);
-    const d = +key.substring(6,8);
-    const dt = new Date(y, m-1, d);
-    const w = ["일","월","화","수","목","금","토"][dt.getDay()];
-    return `${m}월 ${d}일 (${w})`;
-}
-
-
-
-/* ==================================
-   RENDER — 잔여시간 없는 코트 숨김
-================================== */
-function render() {
-    const gu = document.querySelector("#filter-gu .active").dataset.gu;
-    const courtGroup = document.getElementById("filter-court").value;
-
-    let html = "";
-
-    for (let rid in FACILITIES) {
-
-        if (courtGroup !== "all" && ridToGroup[rid] !== courtGroup) continue;
-
-        const loc = FACILITIES[rid].location || "";
-        if (gu !== "all" && !loc.includes(gu)) continue;
-
-        const days = AVAIL[rid] || {};
-        let filtered = Object.keys(days);
-
-        if (selectedDate) filtered = filtered.filter(d => d === selectedDate);
-
-        const hasSlots = filtered.some(d => days[d].length > 0);
-        if (!hasSlots) continue;
-
-
-
-        html += `
-        <div class="court-card">
-            <div class="court-title">${FACILITIES[rid].title}</div>
-            <div class="court-location">${FACILITIES[rid].location}</div>
-        `;
-
-        for (let dk of filtered) {
-            html += `
-            <div class="date-section">
-                <div class="date-header">${formatKoreanDate(dk)}</div>
-            `;
-
-            days[dk].forEach(t => {
-                html += `<div class="time-slot">${t.timeContent}</div>`;
-            });
-
-            html += `</div>`;
-        }
-
-        html += `</div>`;
-    }
-
-    document.getElementById("content").innerHTML = html;
-}
-
-
-
-/* ==================================
-   FILTER EVENTS
-================================== */
-document.querySelectorAll("#filter-gu button").forEach(btn =>
-    btn.addEventListener("click", () => {
-        [...btn.parentElement.children].forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        render();
-    })
-);
-
-document.getElementById("filter-court").addEventListener("change", render);
-
-
-/* EXEC */
-loadData();
-
+// init
+(async ()=>{
+  await syncMe();
+  await loadData();
+})();
 </script>
 
 </body>
