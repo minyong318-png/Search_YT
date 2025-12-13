@@ -102,6 +102,15 @@ def kakao_callback():
 # =========================
 @app.route("/data")
 def data():
+    if not CACHE["updated_at"]:
+        try:
+            facilities, availability = run_all()
+            CACHE["facilities"] = facilities
+            CACHE["availability"] = availability
+            CACHE["updated_at"] = datetime.now(KST).isoformat()
+        except Exception:
+            pass
+
     return jsonify({
         "facilities": CACHE["facilities"],
         "availability": CACHE["availability"],

@@ -26,86 +26,95 @@ body{
 .container{
   max-width:900px;
   margin:0 auto;
-  padding:20px 16px 120px;
+  padding:20px 16px 140px;
 }
 
-/* ===== 타이틀 ===== */
-.header{
-  margin-bottom:16px;
-}
 .header h1{
+  margin:0;
   font-size:22px;
   font-weight:800;
-  margin:0 0 4px;
 }
 .header .sub{
   font-size:13px;
   color:var(--sub);
+  margin-top:4px;
 }
 
-/* ===== 공통 카드 ===== */
 .card{
   background:var(--card);
   border-radius:var(--radius);
   padding:16px;
   box-shadow:0 8px 24px rgba(0,0,0,.08);
-  margin-bottom:14px;
+  margin-top:14px;
 }
 
-/* ===== 필터 영역 ===== */
-.filter-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
+.card h3{
+  margin:0 0 10px;
+  font-size:16px;
 }
-.filter-grid select,
-.filter-grid input{
+
+select,input,button{
+  width:100%;
   padding:12px;
   border-radius:12px;
   border:1px solid var(--border);
   font-size:14px;
 }
 
-/* ===== 알람 ===== */
-.alarm-row{
-  display:grid;
-  grid-template-columns:1fr 1fr auto;
-  gap:10px;
-  margin-top:10px;
-}
 button{
-  padding:12px 16px;
-  border-radius:12px;
-  border:none;
   background:var(--primary);
-  color:#fff;
+  color:white;
   font-weight:700;
-  font-size:14px;
-  cursor:pointer;
+  border:none;
 }
 
-/* ===== 데이터 ===== */
+/* 필터 */
+.filter-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+/* 알람 */
+.alarm-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+}
+
+.alarm-list{
+  margin-top:10px;
+  font-size:13px;
+}
+.alarm-item{
+  padding:8px 10px;
+  border-radius:10px;
+  background:#f9fafb;
+  border:1px solid var(--border);
+  margin-top:6px;
+}
+
+/* 예약 데이터 */
 .court-card{
   margin-bottom:20px;
 }
 .court-title{
-  font-size:16px;
   font-weight:700;
 }
 .court-loc{
   font-size:13px;
   color:var(--sub);
-  margin-bottom:8px;
+  margin-bottom:6px;
 }
 .date-box{
   background:#f9fafb;
   border-radius:12px;
   padding:10px;
-  margin-bottom:8px;
+  margin-top:8px;
 }
 .date-title{
-  font-size:14px;
   font-weight:600;
+  font-size:14px;
   margin-bottom:6px;
 }
 .slots{
@@ -114,23 +123,11 @@ button{
   gap:6px;
 }
 .slot{
-  padding:7px 10px;
+  padding:6px 10px;
   border-radius:10px;
   border:1px solid var(--border);
   font-size:13px;
-  background:#fff;
-}
-
-/* ===== 하단 ===== */
-.footer{
-  position:fixed;
-  bottom:14px;
-  right:14px;
-  background:#fff;
-  padding:8px 14px;
-  border-radius:999px;
-  font-size:12px;
-  box-shadow:0 6px 18px rgba(0,0,0,.15);
+  background:white;
 }
 </style>
 </head>
@@ -138,15 +135,14 @@ button{
 <body>
 <div class="container">
 
-  <!-- ===== 타이틀 ===== -->
   <div class="header">
     <h1>🎾 용인 테니스 예약</h1>
     <div class="sub" id="updatedAt">업데이트 확인 중…</div>
   </div>
 
-  <!-- ===== 필터 + 알람 (무조건 상단) ===== -->
+  <!-- 필터 -->
   <div class="card">
-    <h3 style="margin:0 0 10px">필터</h3>
+    <h3>필터</h3>
     <div class="filter-grid">
       <select id="filterGu">
         <option value="">구 전체</option>
@@ -161,41 +157,42 @@ button{
 
       <input type="date" id="filterDate">
     </div>
+  </div>
 
-    <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
-
-    <h3 style="margin:0 0 8px">🔔 알람</h3>
-    <div class="alarm-row">
+  <!-- 알람 -->
+  <div class="card">
+    <h3>🔔 알람 등록</h3>
+    <div class="alarm-grid">
       <select id="alarmCourt">
         <option value="">코트 선택</option>
       </select>
       <input type="date" id="alarmDate">
-      <button id="alarmBtn">등록</button>
+      <button id="alarmBtn">알람 등록</button>
     </div>
-    <div class="sub" style="margin-top:6px">
-      알람 등록 시점 이후 새로 열린 시간만 알림
+
+    <div class="alarm-list" id="alarmList">
+      등록된 알람이 없습니다.
     </div>
   </div>
 
-  <!-- ===== 예약 데이터 (맨 아래) ===== -->
+  <!-- 데이터 -->
   <div class="card">
-    <h3 style="margin-top:0">예약 가능 현황</h3>
+    <h3>예약 가능 현황</h3>
     <div id="courts">불러오는 중…</div>
   </div>
 
 </div>
 
-<div class="footer">자동 갱신 중</div>
-
 <script>
-let DATA;
+let DATA = {};
 
 async function loadData(){
   const res = await fetch("/data");
   DATA = await res.json();
   renderUpdated();
-  buildCourtOptions();
+  buildSelects();
   renderCourts();
+  loadAlarms();
 }
 
 function renderUpdated(){
@@ -206,9 +203,10 @@ function renderUpdated(){
   updatedAt.textContent="마지막 업데이트: "+DATA.updated_at;
 }
 
-function buildCourtOptions(){
+function buildSelects(){
   filterCourt.innerHTML='<option value="">코트 전체</option>';
   alarmCourt.innerHTML='<option value="">코트 선택</option>';
+
   Object.values(DATA.facilities).forEach(f=>{
     const name=f.title.replace(/\[.*?\]/g,"").trim();
     filterCourt.innerHTML+=`<option>${name}</option>`;
@@ -218,17 +216,27 @@ function buildCourtOptions(){
 
 function renderCourts(){
   courts.innerHTML="";
+  const gu=filterGu.value;
+  const court=filterCourt.value;
+  const date=filterDate.value.replaceAll("-","");
+
   for(const id in DATA.facilities){
     const fac=DATA.facilities[id];
+    if(gu && !fac.location?.includes(gu)) continue;
+    if(court && !fac.title.includes(court)) continue;
+
     const days=DATA.availability[id];
     if(!days) continue;
 
+    let has=false;
     let html=`<div class="court-card">
       <div class="court-title">${fac.title}</div>
       <div class="court-loc">${fac.location||""}</div>`;
 
     for(const d in days){
+      if(date && d!==date) continue;
       if(!days[d].length) continue;
+      has=true;
       html+=`<div class="date-box">
         <div class="date-title">${d.slice(4,6)}.${d.slice(6,8)}</div>
         <div class="slots">`;
@@ -237,9 +245,20 @@ function renderCourts(){
       });
       html+=`</div></div>`;
     }
+
     html+=`</div>`;
-    courts.innerHTML+=html;
+    if(has) courts.innerHTML+=html;
   }
+
+  if(!courts.innerHTML) courts.textContent="조건에 맞는 예약이 없습니다.";
+}
+
+async function loadAlarms(){
+  const res=await fetch("/alarm/list");
+  const list=await res.json();
+  alarmList.innerHTML=list.length
+    ? list.map(a=>`<div class="alarm-item">${a.court_group} / ${a.date}</div>`).join("")
+    : "등록된 알람이 없습니다.";
 }
 
 alarmBtn.onclick=async()=>{
@@ -255,8 +274,12 @@ alarmBtn.onclick=async()=>{
       date:alarmDate.value
     })
   });
-  alert("알람 등록 완료");
+  loadAlarms();
 };
+
+filterGu.onchange=renderCourts;
+filterCourt.onchange=renderCourts;
+filterDate.onchange=renderCourts;
 
 loadData();
 </script>
