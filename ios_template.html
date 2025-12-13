@@ -276,8 +276,7 @@ async function loadData() {
 
     const data = await res.json();
 
-    FACILITIES = data.facilities || {};
-    AVAIL = data.availability || {};
+    DATA = data;
 
     renderUpdatedTime(data.updated_at);
     buildCourtGroups();
