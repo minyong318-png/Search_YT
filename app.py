@@ -12,6 +12,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
 
 KAKAO_REST_API_KEY = os.environ.get("KAKAO_REST_API_KEY")
 KAKAO_REDIRECT_URI = os.environ.get("KAKAO_REDIRECT_URI")
+KAKAO_CLIENT_SECRET = os.environ.get("KAKAO_CLIENT_SECRET")
 
 # ==========================
 # 카카오 로그인
@@ -37,6 +38,7 @@ def kakao_callback():
             "grant_type": "authorization_code",
             "client_id": KAKAO_REST_API_KEY,
             "redirect_uri": KAKAO_REDIRECT_URI,
+            "client_secret": KAKAO_CLIENT_SECRET,
             "code": code,
         }
     ).json()
