@@ -160,6 +160,7 @@ button{
   <div class="header">
     <h1>🎾 용인 테니스 예약</h1>
     <div class="updated" id="updatedAt">업데이트 확인 중…</div>
+    <div class="updated" id="loginStatus">로그인 확인 중…</div>
   </div>
 
   <!-- 필터 -->
@@ -233,6 +234,20 @@ function getCourtGroup(title){
     .trim();
 }
 
+async function loadMe(){
+  const res = await fetch("/me");
+  const me = await res.json();
+
+  if (!me.logged_in) {
+    loginStatus.innerHTML = `🔐 <a href="/auth/kakao">카카오 로그인</a> 후 알람 사용 가능`;
+    alarmBtn.disabled = true;
+    alarmBtn.style.opacity = 0.5;
+  } else {
+    loginStatus.textContent = `👤 ${me.nickname}님 로그인 중`;
+    alarmBtn.disabled = false;
+    alarmBtn.style.opacity = 1;
+  }
+}
 
 
 function getWeekday(yyyymmdd){
@@ -251,6 +266,7 @@ async function loadData(){
   buildCourtGroups();
   renderCourts();
   loadAlarms();
+  loadMe();
 }
 
 function renderUpdated(){
@@ -341,34 +357,37 @@ async function loadAlarms(){
     return;
   }
 
-  // 그룹 기준으로 묶기
   const grouped = {};
   list.forEach(a => {
-    if (!grouped[a.court_group]) {
-      grouped[a.court_group] = [];
-    }
+    if (!grouped[a.court_group]) grouped[a.court_group] = [];
     grouped[a.court_group].push(a.date);
   });
 
-  // 날짜 정렬 + 중복 제거
   let html = "";
-  Object.keys(grouped)
-    .sort((a, b) => a.localeCompare(b, "ko"))
-    .forEach(group => {
-      const dates = [...new Set(grouped[group])]
-        .sort();
-
-      html += `<div style="margin-top:10px">
-        <strong>${group}</strong>
-        ${dates.map(d => `
-          <div style="margin-left:10px;color:#64748b">
-            ${d}
-          </div>
-        `).join("")}
-      </div>`;
+  Object.keys(grouped).sort().forEach(group => {
+    grouped[group].forEach(date => {
+      html += `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <span>${group} / ${date}</span>
+          <button onclick="deleteAlarm('${group}','${date}')" style="background:none;color:red;border:none">삭제</button>
+        </div>
+      `;
     });
+  });
 
   alarmList.innerHTML = html;
+}
+
+async function deleteAlarm(group, date){
+  await fetch("/alarm/delete", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      court_group: group,
+      date: date
+    })
+  });
+  loadAlarms();
 }
 
 
@@ -392,6 +411,11 @@ alarmBtn.onclick = async () => {
     // 로그인 안 된 상태 → 카카오 로그인으로 이동
     window.location.href = "/auth/kakao";
     return;
+  }
+
+  if (res.status === 409) {
+  alert("이미 등록된 알람입니다.");
+  return;
   }
 
   const data = await res.json();

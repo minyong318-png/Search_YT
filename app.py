@@ -163,6 +163,14 @@ def alarm_add():
 
     body = request.json
     alarms = load_alarms()
+    for a in alarms:
+        if (
+            a["user_id"] == user_id and
+            a["court_group"] == body["court_group"] and
+            a["date"] == body["date"]
+        ):
+            return jsonify({"error": "duplicate"}), 409
+    
     alarms.append({
         "user_id": user_id,
         "court_group": body.get("court_group"),
@@ -182,8 +190,51 @@ def health():
     return "ok"
 
 #==========================
-# 카카오 메시지 전송 함수  
+# 내 정보
+#=========================
+@app.route("/me")
+def me():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"logged_in": False})
 
+    users = load_users()
+    user = users.get(user_id)
+
+    return jsonify({
+        "logged_in": True,
+        "nickname": user.get("nickname") if user else ""
+    })
+
+#==========================
+# 알람 삭제
+#==========================
+@app.route("/alarm/delete", methods=["POST"])
+def alarm_delete():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "login required"}), 401
+
+    body = request.json
+    court = body.get("court_group")
+    date = body.get("date")
+
+    alarms = load_alarms()
+    alarms = [
+        a for a in alarms
+        if not (
+            a["user_id"] == user_id and
+            a["court_group"] == court and
+            a["date"] == date
+        )
+    ]
+    save_alarms(alarms)
+
+    return jsonify({"status": "ok"})
+
+#==========================
+# 카카오 메시지 전송 함수  
+#==========================
 def send_kakao_message(access_token, text):
     import json, requests
     res = requests.post(
