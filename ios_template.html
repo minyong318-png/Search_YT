@@ -270,8 +270,9 @@ async function loadData() {
       credentials: "same-origin"
     });
 
-    if (!res.ok) {
-      throw new Error("failed to load data");
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      throw new Error("Not JSON response");
     }
 
     const data = await res.json();
@@ -286,9 +287,10 @@ async function loadData() {
   } catch (e) {
     console.error("[loadData error]", e);
     document.getElementById("courts").innerHTML =
-      "⏳ 아직 예약 정보가 준비되지 않았습니다.<br>잠시 후 새로고침 해주세요.";
+      "⏳ 서버에서 예약 정보를 불러오지 못했습니다.<br>잠시 후 새로고침 해주세요.";
   }
 }
+
 
 
 function renderUpdatedTime(updatedAt) {
@@ -304,7 +306,7 @@ function renderUpdatedTime(updatedAt) {
   const hh = String(kst.getHours()).padStart(2, "0");
   const mm = String(kst.getMinutes()).padStart(2, "0");
 
-  document.getElementById("updatedTime").innerText =
+  document.getElementById("updatedAt").innerText =
     `마지막 업데이트 : ${hh}:${mm}`;
 }
 
@@ -457,12 +459,15 @@ alarmBtn.onclick = async () => {
     alert("알람 등록 완료");
   }
 };
+async function init() {
+  await loadMe().catch(()=>{});
+  await loadData();
+}
 
 
 filterGu.onchange=renderCourts;
 filterCourt.onchange=renderCourts;
-loadMe();
-loadData();
+init();
 </script>
 </body>
 </html>

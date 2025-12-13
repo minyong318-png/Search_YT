@@ -245,19 +245,26 @@ def alarm_delete():
 def test_kakao():
     user_id = session.get("user_id")
     if not user_id:
-        return "로그인 먼저 하세요", 401
+        return "로그인 필요", 401
 
     users = load_users()
     user = users.get(user_id)
     if not user:
-        return "사용자 정보 없음", 400
+        return "유저 정보 없음", 400
 
-    send_kakao_message(
-        user["access_token"],
-        "🧪 카카오 알림 테스트\n정상적으로 메시지가 전송되었습니다."
+    access_token = user["access_token"]
+
+    res = send_kakao_message(
+        access_token,
+        "🔥 카카오 즉시 발송 테스트 메시지"
     )
 
-    return "테스트 메시지를 즉시 전송했습니다."
+    return {
+        "status": res.status_code,
+        "body": res.text
+    }
+
+
 
 #==========================
 # 카카오 메시지 전송 함수  
