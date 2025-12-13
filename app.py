@@ -201,9 +201,14 @@ def me():
     users = load_users()
     user = users.get(user_id)
 
+    # 🔥 users.json에 정보 없으면 로그아웃 처리
+    if not user:
+        session.clear()
+        return jsonify({"logged_in": False})
+
     return jsonify({
         "logged_in": True,
-        "nickname": user.get("nickname") if user else ""
+        "nickname": user.get("nickname", "")
     })
 
 #==========================
