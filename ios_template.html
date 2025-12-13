@@ -372,21 +372,35 @@ async function loadAlarms(){
 }
 
 
-alarmBtn.onclick=async()=>{
-  if(!alarmCourt.value||!alarmDate.value){
+alarmBtn.onclick = async () => {
+  if (!alarmCourt.value || !alarmDate.value) {
     alert("코트와 날짜를 선택하세요");
     return;
   }
-  await fetch("/alarm/add",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      court_group:alarmCourt.value,
-      date:alarmDate.value
+
+  const res = await fetch("/alarm/add", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      court_group: alarmCourt.value,
+      date: alarmDate.value
     })
   });
-  loadAlarms();
+
+  // 🔥 여기 핵심
+  if (res.status === 401) {
+    // 로그인 안 된 상태 → 카카오 로그인으로 이동
+    window.location.href = "/auth/kakao";
+    return;
+  }
+
+  const data = await res.json();
+  if (data.status === "ok") {
+    loadAlarms();
+    alert("알람 등록 완료");
+  }
 };
+
 
 filterGu.onchange=renderCourts;
 filterCourt.onchange=renderCourts;
