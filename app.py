@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request, send_file, redirect, session
 from datetime import datetime,timezone,timedelta
 import os, json, traceback, requests
+import threading
+import time
 
 from tennis_core import run_all
 from alarm_store import load_alarms, save_alarms, cleanup_old_alarms
@@ -236,31 +238,52 @@ def alarm_delete():
     save_alarms(alarms)
 
     return jsonify({"status": "ok"})
+#==========================
+# 카카오 테스트 메시지
+#==========================
+@app.route("/test/kakao")
+def test_kakao():
+    user_id = session.get("user_id")
+    if not user_id:
+        return "로그인 먼저 하세요", 401
 
+    users = load_users()
+    user = users.get(user_id)
+    if not user:
+        return "사용자 정보 없음", 400
+
+    def delayed_send():
+        time.sleep(60)  # 1분 대기
+        send_kakao_message(
+            user["access_token"],
+            f"🧪 테스트 메시지\n"
+            f"시간: {datetime.now().strftime('%H:%M:%S')}\n\n"
+            f"카카오 알림 정상 동작 중입니다."
+        )
+
+    threading.Thread(target=delayed_send).start()
+
+    return "1분 후 테스트 카카오톡을 전송합니다."
 #==========================
 # 카카오 메시지 전송 함수  
 #==========================
 def send_kakao_message(access_token, text):
-    import json, requests
-    res = requests.post(
-        "https://kapi.kakao.com/v2/api/talk/memo/default/send",
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/x-www-form-urlencoded"
-        },
-        data={
-            "template_object": json.dumps({
-                "object_type": "text",
-                "text": text,
-                "link": {
-                    "web_url": "https://YOUR-DOMAIN/",
-                    "mobile_web_url": "https://YOUR-DOMAIN/"
-                }
-            }, ensure_ascii=False)
-        },
-        timeout=10
-    )
-    return res.status_code == 200
+    url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    data = {
+        "template_object": json.dumps({
+            "object_type": "text",
+            "text": text,
+            "link": {
+                "web_url": "https://web-production-e5054.up.railway.app",
+                "mobile_web_url": "https://web-production-e5054.up.railway.app"
+            }
+        })
+    }
+    return requests.post(url, headers=headers, data=data)
 
 def detect_new_slots(facilities, availability):
     import json, os
