@@ -1,18 +1,40 @@
-from flask import Flask, jsonify, request, send_file
-from datetime import datetime
-import traceback
+from flask import Flask, jsonify, request, send_file, redirect, session
+from datetime import datetime,timezone,timedelta
+import os, json, traceback, requests
 
-from tennis_core import run_all          # ✅ 그대로 사용
-from alarm_store import (
-    load_alarms,
-    save_alarms,
-    cleanup_old_alarms
-)
-
-app = Flask(__name__)
+from tennis_core import run_all
+from alarm_store import load_alarms, save_alarms, cleanup_old_alarms
 
 # =========================
-# 전역 캐시 (메모리)
+# Flask 기본 설정
+# =========================
+app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET", "tennis-secret")
+
+# =========================
+# 카카오 설정 (환경변수)
+# =========================
+KAKAO_REST_API_KEY = os.environ.get("KAKAO_REST_API_KEY")
+KAKAO_CLIENT_SECRET = os.environ.get("KAKAO_CLIENT_SECRET")
+KAKAO_REDIRECT_URI = os.environ.get("KAKAO_REDIRECT_URI")
+
+USERS_FILE = "users.json"
+KST = timezone(timedelta(hours=9))
+# =========================
+# 유저 저장
+# =========================
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        return {}
+    with open(USERS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_users(data):
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+# =========================
+# 전역 캐시
 # =========================
 CACHE = {
     "facilities": {},
@@ -28,7 +50,55 @@ def index():
     return send_file("ios_template.html")
 
 # =========================
-# 데이터 조회 (프론트용)
+# 카카오 로그인
+# =========================
+@app.route("/auth/kakao")
+def kakao_login():
+    url = (
+        "https://kauth.kakao.com/oauth/authorize"
+        "?response_type=code"
+        f"&client_id={KAKAO_REST_API_KEY}"
+        f"&redirect_uri={KAKAO_REDIRECT_URI}"
+    )
+    return redirect(url)
+
+@app.route("/auth/kakao/callback")
+def kakao_callback():
+    code = request.args.get("code")
+
+    token = requests.post(
+        "https://kauth.kakao.com/oauth/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": KAKAO_REST_API_KEY,
+            "client_secret": KAKAO_CLIENT_SECRET,
+            "redirect_uri": KAKAO_REDIRECT_URI,
+            "code": code,
+        }
+    ).json()
+
+    access_token = token.get("access_token")
+    if not access_token:
+        return "카카오 토큰 발급 실패", 400
+
+    user = requests.get(
+        "https://kapi.kakao.com/v2/user/me",
+        headers={"Authorization": f"Bearer {access_token}"}
+    ).json()
+
+    users = load_users()
+    users[str(user["id"])] = {
+        "nickname": user["properties"]["nickname"],
+        "access_token": access_token,
+        "updated_at": datetime.now(KST).isoformat()
+    }
+    save_users(users)
+
+    session["user_id"] = str(user["id"])
+    return redirect("/")
+
+# =========================
+# 데이터 API
 # =========================
 @app.route("/data")
 def data():
@@ -39,92 +109,197 @@ def data():
     })
 
 # =========================
-# 크롤링 갱신 (UptimeRobot이 호출)
+# 크롤링 갱신 (UptimeRobot)
 # =========================
 @app.route("/refresh")
 def refresh():
     try:
         facilities, availability = run_all()
-
         CACHE["facilities"] = facilities
         CACHE["availability"] = availability
-        CACHE["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        CACHE["updated_at"] = datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
 
-        # 지난 날짜 알림 자동 정리
         cleanup_old_alarms()
+
+        new_slots = detect_new_slots(facilities, availability)
+        if new_slots:
+            trigger_kakao_alerts(new_slots)
 
         return jsonify({
             "status": "ok",
             "updated_at": CACHE["updated_at"],
-            "facility_count": len(facilities)
+            "new_slots": len(new_slots)
         })
-
-    except Exception as e:
-        print("[REFRESH ERROR]")
+    except Exception:
         traceback.print_exc()
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error"}), 500
 
 # =========================
-# 알림 목록 조회
+# 알람 API (사용자별)
 # =========================
 @app.route("/alarm/list")
 def alarm_list():
-    return jsonify(load_alarms())
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify([])
 
-# =========================
-# 알림 추가
-# =========================
+    alarms = load_alarms()
+    return jsonify([a for a in alarms if a.get("user_id") == user_id])
+
 @app.route("/alarm/add", methods=["POST"])
 def alarm_add():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "login required"}), 401
+
     body = request.json
-
-    if not body or "court" not in body or "date" not in body:
-        return jsonify({"error": "invalid payload"}), 400
-
     alarms = load_alarms()
-
     alarms.append({
-        "court": body["court"],
-        "date": body["date"]
+        "user_id": user_id,
+        "court_group": body.get("court_group"),
+        "date": body.get("date"),
+        "created_at": datetime.now(KST).isoformat()
     })
-
     save_alarms(alarms)
+    save_alarm_baseline(user_id)
 
     return jsonify({"status": "ok"})
 
 # =========================
-# 알림 삭제 (옵션)
-# =========================
-@app.route("/alarm/delete", methods=["POST"])
-def alarm_delete():
-    body = request.json
-    if not body:
-        return jsonify({"error": "invalid payload"}), 400
-
-    court = body.get("court")
-    date = body.get("date")
-
-    alarms = load_alarms()
-    alarms = [
-        a for a in alarms
-        if not (a.get("court") == court and a.get("date") == date)
-    ]
-
-    save_alarms(alarms)
-    return jsonify({"status": "ok"})
-
-# =========================
-# 헬스체크 (UptimeRobot용)
+# 헬스체크
 # =========================
 @app.route("/health")
 def health():
     return "ok"
 
+#==========================
+# 카카오 메시지 전송 함수  
+
+def send_kakao_message(access_token, text):
+    import json, requests
+    res = requests.post(
+        "https://kapi.kakao.com/v2/api/talk/memo/default/send",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        data={
+            "template_object": json.dumps({
+                "object_type": "text",
+                "text": text,
+                "link": {
+                    "web_url": "https://YOUR-DOMAIN/",
+                    "mobile_web_url": "https://YOUR-DOMAIN/"
+                }
+            }, ensure_ascii=False)
+        },
+        timeout=10
+    )
+    return res.status_code == 200
+
+def detect_new_slots(facilities, availability):
+    import json, os
+
+    # 이전 알림 기록
+    sent = {}
+    if os.path.exists("last_slots.json"):
+        with open("last_slots.json", "r", encoding="utf-8") as f:
+            sent = json.load(f)
+
+    # baseline
+    baseline = {}
+    if os.path.exists("alarm_baseline.json"):
+        with open("alarm_baseline.json", "r", encoding="utf-8") as f:
+            baseline = json.load(f)
+
+    new_slots = []
+
+    for cid, days in availability.items():
+        title = facilities[cid]["title"]
+
+        for date, slots in days.items():
+            for s in slots:
+                key = f"{cid}|{date}|{s['timeContent']}"
+
+                # ❌ 이미 baseline에 있으면 무시
+                for user_base in baseline.values():
+                    if key in user_base:
+                        break
+                else:
+                    # ❌ 이미 알림 보냈으면 무시
+                    if key in sent:
+                        continue
+
+                    new_slots.append({
+                        "key": key,
+                        "court_title": title,
+                        "date": date,
+                        "time": s["timeContent"]
+                    })
+
+                sent[key] = True
+
+    with open("last_slots.json", "w", encoding="utf-8") as f:
+        json.dump(sent, f, ensure_ascii=False, indent=2)
+
+    return new_slots
+
+
+def load_users():
+    if not os.path.exists("users.json"):
+        return {}
+    with open("users.json", "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def trigger_kakao_alerts(new_slots):
+    users = load_users()
+    alarms = load_alarms()
+
+    for slot in new_slots:
+        for alarm in alarms:
+            # 코트 그룹 매칭 (부분 포함)
+            if alarm["court_group"] not in slot["court_title"]:
+                continue
+
+            # 날짜 매칭 (YYYYMMDD ↔ YYYY-MM-DD)
+            slot_date = slot["date"]
+            alarm_date = alarm["date"].replace("-", "")
+            if slot_date != alarm_date:
+                continue
+
+            user_id = alarm["user_id"]
+            user = users.get(user_id)
+            if not user:
+                continue
+
+            msg = (
+                "🎾 테니스 예약 알림\n\n"
+                f"{slot['court_title']}\n"
+                f"{slot_date[4:6]}.{slot_date[6:8]} "
+                f"{slot['time']}\n\n"
+                "지금 예약 가능합니다!"
+            )
+
+            send_kakao_message(user["access_token"], msg)
 # =========================
-# 로컬 실행용
+# 알람 기준 저장
 # =========================
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+def save_alarm_baseline(user_id):
+    import json, os
+
+    baseline = {}
+    if os.path.exists("alarm_baseline.json"):
+        with open("alarm_baseline.json", "r", encoding="utf-8") as f:
+            baseline = json.load(f)
+
+    snapshot = {}
+    for cid, days in CACHE["availability"].items():
+        for date, slots in days.items():
+            for s in slots:
+                key = f"{cid}|{date}|{s['timeContent']}"
+                snapshot[key] = True
+
+    baseline[user_id] = snapshot
+
+    with open("alarm_baseline.json", "w", encoding="utf-8") as f:
+        json.dump(baseline, f, ensure_ascii=False, indent=2)
