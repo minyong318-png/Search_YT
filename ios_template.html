@@ -291,14 +291,23 @@ async function loadData() {
 }
 
 
-function renderUpdatedTime(ts){
-  if (!ts) {
-    updatedAt.textContent = "업데이트 대기 중";
+function renderUpdatedTime(updatedAt) {
+  if (!updatedAt) {
+    document.getElementById("updatedTime").innerText =
+      "마지막 업데이트 : 정보 없음";
     return;
   }
-  const time = ts.split(" ")[1]?.slice(0,5);
-  updatedAt.textContent = `마지막 업데이트 · ${time}`;
+
+  const d = new Date(updatedAt);
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+
+  const hh = String(kst.getHours()).padStart(2, "0");
+  const mm = String(kst.getMinutes()).padStart(2, "0");
+
+  document.getElementById("updatedTime").innerText =
+    `마지막 업데이트 : ${hh}:${mm}`;
 }
+
 
 
 function buildCourtGroups(){
@@ -452,7 +461,7 @@ alarmBtn.onclick = async () => {
 
 filterGu.onchange=renderCourts;
 filterCourt.onchange=renderCourts;
-
+loadMe();
 loadData();
 </script>
 </body>
