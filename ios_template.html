@@ -9,111 +9,116 @@
 :root{
   --bg:#f5f7fb;
   --card:#ffffff;
-  --text:#111827;
-  --sub:#6b7280;
-  --primary:#5b6dff;
+  --text:#0f172a;
+  --sub:#64748b;
+  --primary:#4f46e5;
   --border:#e5e7eb;
-  --radius:16px;
+  --radius:18px;
 }
 
 body{
   margin:0;
   font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
-  background:linear-gradient(180deg,#eef2ff,#f9fafb);
+  background:linear-gradient(180deg,#eef2ff,#f8fafc);
   color:var(--text);
 }
 
 .container{
   max-width:900px;
   margin:0 auto;
-  padding:20px 16px 140px;
+  padding:20px 16px 160px;
 }
 
+/* ===== 헤더 ===== */
 .header h1{
   margin:0;
   font-size:22px;
   font-weight:800;
 }
-.header .sub{
+.header .updated{
+  margin-top:6px;
   font-size:13px;
   color:var(--sub);
-  margin-top:4px;
 }
 
+/* ===== 카드 ===== */
 .card{
   background:var(--card);
   border-radius:var(--radius);
-  padding:16px;
-  box-shadow:0 8px 24px rgba(0,0,0,.08);
-  margin-top:14px;
+  padding:18px;
+  box-shadow:0 10px 28px rgba(0,0,0,.08);
+  margin-top:16px;
 }
 
 .card h3{
-  margin:0 0 10px;
+  margin:0 0 14px;
   font-size:16px;
+  font-weight:700;
 }
 
-select,input,button{
-  width:100%;
-  padding:12px;
-  border-radius:12px;
+/* ===== 공통 입력 ===== */
+.select, .date-box{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:14px;
+  border-radius:14px;
   border:1px solid var(--border);
+  background:#fff;
   font-size:14px;
 }
 
-button{
-  background:var(--primary);
-  color:white;
-  font-weight:700;
+.select select{
   border:none;
+  outline:none;
+  font-size:14px;
+  width:100%;
+  background:none;
 }
 
-/* 필터 */
-.filter-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
+.date-box{
+  cursor:pointer;
+}
+.date-box span{
+  color:var(--sub);
+  font-size:14px;
 }
 
-.date-input{
-  position:relative;
-}
-.date-input::before{
-  content:"📅";
+/* 숨김 date input */
+.date-box input{
   position:absolute;
-  left:12px;
-  top:50%;
-  transform:translateY(-50%);
-}
-.date-input input{
-  padding-left:36px;
+  opacity:0;
+  pointer-events:none;
 }
 
-/* 알람 */
-.alarm-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
+/* ===== 필터 ===== */
+.filter-stack{
+  display:flex;
+  flex-direction:column;
   gap:10px;
 }
-.alarm-grid button{
-  grid-column:1 / -1;
+
+/* ===== 알람 ===== */
+.alarm-stack{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
 }
 
-.alarm-list{
-  margin-top:10px;
-  font-size:13px;
-}
-.alarm-item{
-  padding:8px 10px;
-  border-radius:10px;
-  background:#f9fafb;
-  border:1px solid var(--border);
+button{
   margin-top:6px;
+  padding:14px;
+  border-radius:14px;
+  border:none;
+  background:var(--primary);
+  color:#fff;
+  font-weight:700;
+  font-size:15px;
 }
 
-/* 예약 데이터 */
+/* ===== 예약 데이터 ===== */
 .court-card{
-  margin-bottom:20px;
+  margin-bottom:22px;
 }
 .court-title{
   font-weight:700;
@@ -123,28 +128,28 @@ button{
   color:var(--sub);
   margin-bottom:6px;
 }
-.date-box{
-  background:#f9fafb;
-  border-radius:12px;
-  padding:10px;
-  margin-top:8px;
+.date-box-view{
+  background:#f8fafc;
+  border-radius:14px;
+  padding:12px;
+  margin-top:10px;
 }
 .date-title{
   font-weight:600;
   font-size:14px;
-  margin-bottom:6px;
+  margin-bottom:8px;
 }
 .slots{
   display:flex;
   flex-wrap:wrap;
-  gap:6px;
+  gap:8px;
 }
 .slot{
-  padding:6px 10px;
-  border-radius:10px;
+  padding:8px 12px;
+  border-radius:12px;
   border:1px solid var(--border);
   font-size:13px;
-  background:white;
+  background:#fff;
 }
 </style>
 </head>
@@ -154,44 +159,57 @@ button{
 
   <div class="header">
     <h1>🎾 용인 테니스 예약</h1>
-    <div class="sub" id="updatedAt">업데이트 확인 중…</div>
+    <div class="updated" id="updatedAt">업데이트 확인 중…</div>
   </div>
 
   <!-- 필터 -->
   <div class="card">
     <h3>필터</h3>
-    <div class="filter-grid">
-      <select id="filterGu">
-        <option value="">구 전체</option>
-        <option>처인구</option>
-        <option>기흥구</option>
-        <option>수지구</option>
-      </select>
-
-      <select id="filterCourt">
-        <option value="">코트 전체</option>
-      </select>
-
-      <div class="date-input">
-        <input type="date" id="filterDate">
+    <div class="filter-stack">
+      <div class="select">
+        🏘️
+        <select id="filterGu">
+          <option value="">구 전체</option>
+          <option>처인구</option>
+          <option>기흥구</option>
+          <option>수지구</option>
+        </select>
       </div>
+
+      <div class="select">
+        🎾
+        <select id="filterCourt">
+          <option value="">코트 전체</option>
+        </select>
+      </div>
+
+      <label class="date-box" onclick="filterDate.click()">
+        📅 <span id="filterDateLabel">날짜 선택</span>
+        <input type="date" id="filterDate">
+      </label>
     </div>
   </div>
 
   <!-- 알람 -->
   <div class="card">
     <h3>🔔 알람 등록</h3>
-    <div class="alarm-grid">
-      <select id="alarmCourt">
-        <option value="">코트 선택</option>
-      </select>
-      <div class="date-input">
-        <input type="date" id="alarmDate">
+    <div class="alarm-stack">
+      <div class="select">
+        🎾
+        <select id="alarmCourt">
+          <option value="">코트 선택</option>
+        </select>
       </div>
+
+      <label class="date-box" onclick="alarmDate.click()">
+        📅 <span id="alarmDateLabel">날짜 선택</span>
+        <input type="date" id="alarmDate">
+      </label>
+
       <button id="alarmBtn">알람 등록</button>
     </div>
 
-    <div class="alarm-list" id="alarmList">
+    <div id="alarmList" style="margin-top:12px;font-size:13px;color:var(--sub)">
       등록된 알람이 없습니다.
     </div>
   </div>
@@ -209,11 +227,14 @@ let DATA = {};
 let COURT_GROUPS = {};
 
 function getCourtGroup(title){
-  return title.replace(/\[.*?\]/g,"")
-              .replace(/[0-9]/g,"")
-              .replace(/장애인.*$/,"")
-              .trim();
+  return title
+    .replace(/\[.*?\]/g, "")        // [유료] 제거
+    .replace(/\(.*?\)/g, "")        // (1코트), (장애인코트) 제거
+    .replace(/_.*$/, "")             // _12월 같은 뒤 문자열 제거
+    .replace(/테니스장/g, "")        // '테니스장' 제거
+    .trim();
 }
+
 
 function getWeekday(yyyymmdd){
   const d=new Date(
@@ -234,9 +255,12 @@ async function loadData(){
 }
 
 function renderUpdated(){
-  updatedAt.textContent = DATA.updated_at
-    ? "마지막 업데이트: "+DATA.updated_at
-    : "업데이트 준비 중…";
+  if(!DATA.updated_at){
+    updatedAt.textContent="업데이트 준비 중…";
+    return;
+  }
+  const t = DATA.updated_at.split(" ")[1].slice(0,5);
+  updatedAt.textContent = `마지막 업데이트 · ${t}`;
 }
 
 function buildCourtGroups(){
@@ -249,11 +273,22 @@ function buildCourtGroups(){
   filterCourt.innerHTML='<option value="">코트 전체</option>';
   alarmCourt.innerHTML='<option value="">코트 선택</option>';
 
-  Object.keys(COURT_GROUPS).forEach(g=>{
-    filterCourt.innerHTML+=`<option>${g}</option>`;
-    alarmCourt.innerHTML+=`<option>${g}</option>`;
+  Object.keys(COURT_GROUPS)
+  .sort((a, b) => a.localeCompare(b, "ko"))
+  .forEach(g => {
+    filterCourt.innerHTML += `<option>${g}</option>`;
+    alarmCourt.innerHTML += `<option>${g}</option>`;
   });
+
 }
+
+filterDate.onchange=()=>{
+  filterDateLabel.textContent = filterDate.value;
+  renderCourts();
+};
+alarmDate.onchange=()=>{
+  alarmDateLabel.textContent = alarmDate.value;
+};
 
 function renderCourts(){
   courts.innerHTML="";
@@ -280,7 +315,7 @@ function renderCourts(){
       if(date && d!==date) continue;
       if(!days[d].length) continue;
       has=true;
-      html+=`<div class="date-box">
+      html+=`<div class="date-box-view">
         <div class="date-title">
           ${d.slice(4,6)}.${d.slice(6,8)} (${getWeekday(d)})
         </div>
@@ -299,12 +334,44 @@ function renderCourts(){
 }
 
 async function loadAlarms(){
-  const res=await fetch("/alarm/list");
-  const list=await res.json();
-  alarmList.innerHTML=list.length
-    ? list.map(a=>`<div class="alarm-item">${a.court_group} / ${a.date}</div>`).join("")
-    : "등록된 알람이 없습니다.";
+  const res = await fetch("/alarm/list");
+  const list = await res.json();
+
+  if (!list.length) {
+    alarmList.textContent = "등록된 알람이 없습니다.";
+    return;
+  }
+
+  // 그룹 기준으로 묶기
+  const grouped = {};
+  list.forEach(a => {
+    if (!grouped[a.court_group]) {
+      grouped[a.court_group] = [];
+    }
+    grouped[a.court_group].push(a.date);
+  });
+
+  // 날짜 정렬 + 중복 제거
+  let html = "";
+  Object.keys(grouped)
+    .sort((a, b) => a.localeCompare(b, "ko"))
+    .forEach(group => {
+      const dates = [...new Set(grouped[group])]
+        .sort();
+
+      html += `<div style="margin-top:10px">
+        <strong>${group}</strong>
+        ${dates.map(d => `
+          <div style="margin-left:10px;color:#64748b">
+            ${d}
+          </div>
+        `).join("")}
+      </div>`;
+    });
+
+  alarmList.innerHTML = html;
 }
+
 
 alarmBtn.onclick=async()=>{
   if(!alarmCourt.value||!alarmDate.value){
@@ -324,7 +391,6 @@ alarmBtn.onclick=async()=>{
 
 filterGu.onchange=renderCourts;
 filterCourt.onchange=renderCourts;
-filterDate.onchange=renderCourts;
 
 loadData();
 </script>
