@@ -75,11 +75,28 @@ button{
   gap:10px;
 }
 
+.date-input{
+  position:relative;
+}
+.date-input::before{
+  content:"📅";
+  position:absolute;
+  left:12px;
+  top:50%;
+  transform:translateY(-50%);
+}
+.date-input input{
+  padding-left:36px;
+}
+
 /* 알람 */
 .alarm-grid{
   display:grid;
-  grid-template-columns:1fr;
+  grid-template-columns:1fr 1fr;
   gap:10px;
+}
+.alarm-grid button{
+  grid-column:1 / -1;
 }
 
 .alarm-list{
@@ -155,7 +172,9 @@ button{
         <option value="">코트 전체</option>
       </select>
 
-      <input type="date" id="filterDate">
+      <div class="date-input">
+        <input type="date" id="filterDate">
+      </div>
     </div>
   </div>
 
@@ -166,7 +185,9 @@ button{
       <select id="alarmCourt">
         <option value="">코트 선택</option>
       </select>
-      <input type="date" id="alarmDate">
+      <div class="date-input">
+        <input type="date" id="alarmDate">
+      </div>
       <button id="alarmBtn">알람 등록</button>
     </div>
 
@@ -185,45 +206,67 @@ button{
 
 <script>
 let DATA = {};
+let COURT_GROUPS = {};
+
+function getCourtGroup(title){
+  return title.replace(/\[.*?\]/g,"")
+              .replace(/[0-9]/g,"")
+              .replace(/장애인.*$/,"")
+              .trim();
+}
+
+function getWeekday(yyyymmdd){
+  const d=new Date(
+    yyyymmdd.slice(0,4),
+    yyyymmdd.slice(4,6)-1,
+    yyyymmdd.slice(6,8)
+  );
+  return ["일","월","화","수","목","금","토"][d.getDay()];
+}
 
 async function loadData(){
   const res = await fetch("/data");
   DATA = await res.json();
   renderUpdated();
-  buildSelects();
+  buildCourtGroups();
   renderCourts();
   loadAlarms();
 }
 
 function renderUpdated(){
-  if(!DATA.updated_at){
-    updatedAt.textContent="업데이트 준비 중…";
-    return;
-  }
-  updatedAt.textContent="마지막 업데이트: "+DATA.updated_at;
+  updatedAt.textContent = DATA.updated_at
+    ? "마지막 업데이트: "+DATA.updated_at
+    : "업데이트 준비 중…";
 }
 
-function buildSelects(){
+function buildCourtGroups(){
+  COURT_GROUPS={};
+  Object.values(DATA.facilities).forEach(f=>{
+    const g=getCourtGroup(f.title);
+    COURT_GROUPS[g]=true;
+  });
+
   filterCourt.innerHTML='<option value="">코트 전체</option>';
   alarmCourt.innerHTML='<option value="">코트 선택</option>';
 
-  Object.values(DATA.facilities).forEach(f=>{
-    const name=f.title.replace(/\[.*?\]/g,"").trim();
-    filterCourt.innerHTML+=`<option>${name}</option>`;
-    alarmCourt.innerHTML+=`<option>${name}</option>`;
+  Object.keys(COURT_GROUPS).forEach(g=>{
+    filterCourt.innerHTML+=`<option>${g}</option>`;
+    alarmCourt.innerHTML+=`<option>${g}</option>`;
   });
 }
 
 function renderCourts(){
   courts.innerHTML="";
   const gu=filterGu.value;
-  const court=filterCourt.value;
+  const group=filterCourt.value;
   const date=filterDate.value.replaceAll("-","");
 
   for(const id in DATA.facilities){
     const fac=DATA.facilities[id];
+    const g=getCourtGroup(fac.title);
+
     if(gu && !fac.location?.includes(gu)) continue;
-    if(court && !fac.title.includes(court)) continue;
+    if(group && g!==group) continue;
 
     const days=DATA.availability[id];
     if(!days) continue;
@@ -238,7 +281,9 @@ function renderCourts(){
       if(!days[d].length) continue;
       has=true;
       html+=`<div class="date-box">
-        <div class="date-title">${d.slice(4,6)}.${d.slice(6,8)}</div>
+        <div class="date-title">
+          ${d.slice(4,6)}.${d.slice(6,8)} (${getWeekday(d)})
+        </div>
         <div class="slots">`;
       days[d].forEach(s=>{
         html+=`<div class="slot">${s.timeContent}</div>`;
