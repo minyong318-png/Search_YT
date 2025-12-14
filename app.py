@@ -383,7 +383,7 @@ def trigger_kakao_alerts(new_slots):
     # 🔔 여기서 사용자당 1번만 발송
     for user_id, slots in user_messages.items():
         user = users[user_id]
-        reserve_url = make_reserve_link("slot['court_title']")
+        reserve_url = make_reserve_link("slot['resveId']")
         msg_lines = ["🎾 테니스 예약 알림\n"]
         group = alarm["court_group"]
         for s in slots:
@@ -474,13 +474,13 @@ def group_slots_by_user(new_slots):
         grouped[s["user_id"]].append(s)
     return grouped
 # =========================
-def make_reserve_link(court_title):
+def make_reserve_link(resve_id):
     base = "https://publicsports.yongin.go.kr/publicsports/sports/selectFcltyRceptResveViewU.do"
     return (
         f"{base}"
         f"?key=4236"
+        f"&resveId={resve_id}"
         f"&pageUnit=8"
         f"&pageIndex=1"
-        f"&searchKrwd={quote(court_title)}"
         f"&checkSearchMonthNow=false"
     )
