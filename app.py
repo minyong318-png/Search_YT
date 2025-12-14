@@ -97,10 +97,22 @@ def kakao_callback():
 def data():
     if not CACHE["updated_at"]:
         try:
-            facilities, availability = run_all()
+            facilities, raw_availability = run_all()
+            availability = {}
+            for cid, days in raw_availability.items():
+                availability[cid] = {}
+                for date, slots in days.items():
+                    availability[cid][date] = []
+                    for s in slots:
+                        availability[cid][date].append({
+                            "timeContent": s.get("timeContent"),
+                            "resveId": s.get("resveId")   # 🔥 이 줄이 핵심
+                        })
+
             CACHE["facilities"] = facilities
             CACHE["availability"] = availability
             CACHE["updated_at"] = datetime.now(KST).isoformat()
+
         except Exception:
             pass
 
@@ -385,18 +397,18 @@ def trigger_kakao_alerts(new_slots):
     # 🔔 여기서 사용자당 1번만 발송
     for user_id, slots in user_messages.items():
         user = users[user_id]
-        reserve_url = make_reserve_link("slot['resveId']")
         msg_lines = ["🎾 테니스 예약 알림\n"]
         group = alarm["court_group"]
         for s in slots:
+            reserve_url = make_reserve_link(s["resveId"])
             msg_lines.append(
                 f"• [{group}] {s['court_title']}\n"
                 f"  {s['date'][4:6]}.{s['date'][6:8]} {s['time']}"
                 "👉 지금 예약 가능합니다!\n"
                 f"🔗 예약하러 가기\n{reserve_url}"
             )
-
-        send_kakao_message(user["access_token"], msg_lines)
+        text = "\n".join(msg_lines)
+        send_kakao_message(user["access_token"], text)
 # =========================
 # 알람 기준 저장
 # =========================
