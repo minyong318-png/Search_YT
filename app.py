@@ -160,7 +160,7 @@ def alarm_list():
     if not user_id:
         return jsonify([])
 
-    alarms = safe_load("alarms.json", {})
+    alarms = safe_load("alarms.json", [])
     return jsonify([a for a in alarms if a.get("user_id") == user_id])
 
 @app.route("/alarm/add", methods=["POST"])
@@ -170,7 +170,7 @@ def alarm_add():
         return jsonify({"error": "login required"}), 401
 
     body = request.json
-    alarms = safe_load("alarms.json", {})
+    alarms = safe_load("alarms.json", [])
     for a in alarms:
         if (
             a["user_id"] == user_id and
@@ -433,7 +433,7 @@ def send_notifications(new_slots):
     if not new_slots:
         return
 
-    alarms = safe_load("alarms.json", {})
+    alarms = safe_load("alarms.json", [])
     users = safe_load("users.json", {})
 
     for user_id, user_alarms in alarms.items():
