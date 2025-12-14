@@ -330,7 +330,13 @@ def safe_save(path, data):
         
 def detect_new_slots(facilities, availability):
     sent = safe_load("last_slots.json", {})
+    if not isinstance(sent, dict):
+        sent = {}
+
     baseline = safe_load("alarm_baseline.json", {})
+    if not isinstance(baseline, dict):
+        baseline = {}
+
 
     new_slots = []
 
@@ -411,7 +417,8 @@ def trigger_kakao_alerts(new_slots):
 # =========================
 def save_alarm_baseline(user_id):
     baseline = safe_load("alarm_baseline.json", {})
-
+    if not isinstance(baseline, dict):
+        baseline = {}
     snapshot = {}
 
     for cid, days in CACHE["availability"].items():
