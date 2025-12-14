@@ -108,6 +108,7 @@ def data():
         "facilities": CACHE["facilities"],
         "availability": CACHE["availability"],
         "updated_at": CACHE["updated_at"]
+
     })
 
 # =========================
@@ -344,6 +345,7 @@ def detect_new_slots(facilities, availability):
                     "court_title": title,
                     "date": date,
                     "time": s["timeContent"],
+                    "resveId": s["resveId"]
                 })
 
                 sent[key] = True
