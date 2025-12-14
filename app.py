@@ -9,6 +9,8 @@ import queue
 from tennis_core import run_all
 from alarm_store import load_alarms, save_alarms, cleanup_old_alarms
 
+
+
 # =========================
 # Flask 기본 설정
 # =========================
@@ -24,6 +26,19 @@ KAKAO_REDIRECT_URI = os.environ.get("KAKAO_REDIRECT_URI")
 
 USERS_FILE = "users.json"
 KST = timezone(timedelta(hours=9))
+
+# =========================
+# 초기 JSON 파일 생성
+# =========================
+def ensure_json_file(path, default):
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(default, f, ensure_ascii=False, indent=2)
+
+ensure_json_file("last_slots.json", {})
+ensure_json_file("alarm_baseline.json", {})
+ensure_json_file("alarms.json", [])
+ensure_json_file("users.json", {})
 
 # =========================
 # 전역 캐시
@@ -502,3 +517,6 @@ def make_reserve_link(resve_id):
         f"&pageIndex=1"
         f"&checkSearchMonthNow=false"
     )
+# =========================
+
+
