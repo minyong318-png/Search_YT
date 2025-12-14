@@ -357,7 +357,6 @@ def detect_new_slots(facilities, availability):
                     "court_title": title,
                     "date": date,
                     "time": s["timeContent"],
-                    "resveId": s["resveId"]
                 })
 
                 sent[key] = True
@@ -400,7 +399,7 @@ def trigger_kakao_alerts(new_slots):
         msg_lines = ["🎾 테니스 예약 알림\n"]
         group = alarm["court_group"]
         for s in slots:
-            reserve_url = make_reserve_link(s["resveId"])
+            reserve_url = make_reserve_link(s["cid"])
             msg_lines.append(
                 f"• [{group}] {s['court_title']}\n"
                 f"  {s['date'][4:6]}.{s['date'][6:8]} {s['time']}"
@@ -450,7 +449,7 @@ def send_notifications(new_slots):
             # 🔒 기존 로직 유지: 조건 맞을 때만 발송
             if not match_alarm(user_alarms, slot):
                 continue
-            reserve_url = make_reserve_link("slot['court_title']")
+            reserve_url = make_reserve_link(slot["cid"])
             text = (
                 f"🎾 예약 가능 알림\n"
                 f"• {slot['court_title']}\n"
