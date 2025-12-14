@@ -304,20 +304,18 @@ def send_kakao_message(access_token, text):
 # =========================
 # 안전한 JSON 로드/저장
 
-def safe_load(path, default=None):
-    if default is None:
-        default = {}
-
+def safe_load(path, default):
     if not os.path.exists(path):
         return default
 
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-            return data if isinstance(data, dict) else default
+            return data if isinstance(data, type(default)) else default
     except Exception as e:
         print(f"[WARN] JSON load failed: {path} | {e}")
         return default
+
 
 
 def safe_save(path, data):
