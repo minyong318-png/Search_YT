@@ -22,18 +22,6 @@ KAKAO_REDIRECT_URI = os.environ.get("KAKAO_REDIRECT_URI")
 
 USERS_FILE = "users.json"
 KST = timezone(timedelta(hours=9))
-# =========================
-# 유저 저장
-# =========================
-def load_users():
-    if not os.path.exists(USERS_FILE):
-        return {}
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_users(data):
-    with open(USERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
 
 # =========================
 # 전역 캐시
@@ -89,13 +77,13 @@ def kakao_callback():
         headers={"Authorization": f"Bearer {access_token}"}
     ).json()
 
-    users = load_users()
+    users = safe_load("users.json",{})
     users[str(user["id"])] = {
         "nickname": user["properties"]["nickname"],
         "access_token": access_token,
         "updated_at": datetime.now(KST).isoformat()
     }
-    save_users(users)
+    safe_save("users.json", users)
 
     session["user_id"] = str(user["id"])
     return redirect("/")
@@ -125,26 +113,28 @@ def data():
 # =========================
 @app.route("/refresh")
 def refresh():
+    print("[INFO] refresh start")
+
     try:
-        facilities, availability = run_all()
-        CACHE["facilities"] = facilities
-        CACHE["availability"] = availability
-        CACHE["updated_at"] = datetime.now(KST).strftime("%Y-%m-%d %H:%M:%S")
+        facilities, availability = crawl_all()
+    except Exception as e:
+        print("[ERROR] crawl failed", e)
+        return "crawl failed", 500
 
-        cleanup_old_alarms()
-
+    try:
         new_slots = detect_new_slots(facilities, availability)
-        if new_slots:
-            trigger_kakao_alerts(new_slots)
+    except Exception as e:
+        print("[ERROR] detect failed", e)
+        new_slots = []
 
-        return jsonify({
-            "status": "ok",
-            "updated_at": CACHE["updated_at"],
-            "new_slots": len(new_slots)
-        })
-    except Exception:
-        traceback.print_exc()
-        return jsonify({"status": "error"}), 500
+    try:
+        send_notifications(new_slots)
+    except Exception as e:
+        print("[ERROR] notify failed", e)
+
+    print(f"[INFO] refresh done (new={len(new_slots)})")
+    return "ok"
+
 
 # =========================
 # 알람 API (사용자별)
@@ -155,7 +145,7 @@ def alarm_list():
     if not user_id:
         return jsonify([])
 
-    alarms = load_alarms()
+    alarms = safe_load("alarms.json", {})
     return jsonify([a for a in alarms if a.get("user_id") == user_id])
 
 @app.route("/alarm/add", methods=["POST"])
@@ -165,7 +155,7 @@ def alarm_add():
         return jsonify({"error": "login required"}), 401
 
     body = request.json
-    alarms = load_alarms()
+    alarms = safe_load("alarms.json", {})
     for a in alarms:
         if (
             a["user_id"] == user_id and
@@ -180,7 +170,7 @@ def alarm_add():
         "date": body.get("date"),
         "created_at": datetime.now(KST).isoformat()
     })
-    save_alarms(alarms)
+    safe_save("alarms.json",alarms)
     save_alarm_baseline(user_id)
 
     return jsonify({"status": "ok"})
@@ -201,7 +191,7 @@ def me():
     if not user_id:
         return jsonify({"logged_in": False})
 
-    users = load_users()
+    users = safe_load("users.json", {})
     user = users.get(user_id)
 
     # 🔥 users.json에 정보 없으면 로그아웃 처리
@@ -227,7 +217,7 @@ def alarm_delete():
     court = body.get("court_group")
     date = body.get("date")
 
-    alarms = load_alarms()
+    alarms = safe_load("alarms.json", {})
     alarms = [
         a for a in alarms
         if not (
@@ -236,7 +226,7 @@ def alarm_delete():
             a["date"] == date
         )
     ]
-    save_alarms(alarms)
+    safe_save("alarms.json", alarms)
 
     return jsonify({"status": "ok"})
 #==========================
@@ -248,7 +238,7 @@ def test_kakao():
     if not user_id:
         return "로그인 필요", 401
 
-    users = load_users()
+    users = safe_load("users.json", {})
     user = users.get(user_id)
     if not user:
         return "유저 정보 없음", 400
@@ -271,22 +261,29 @@ def test_kakao():
 # 카카오 메시지 전송 함수  
 #==========================
 def send_kakao_message(access_token, text):
-    url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-    data = {
-        "template_object": json.dumps({
-            "object_type": "text",
-            "text": text,
-            "link": {
-                "web_url": "https://web-production-e5054.up.railway.app",
-                "mobile_web_url": "https://web-production-e5054.up.railway.app"
-            }
-        })
-    }
-    return requests.post(url, headers=headers, data=data)
+    try:
+        res = requests.post(
+            "https://kapi.kakao.com/v2/api/talk/memo/default/send",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={
+                "template_object": json.dumps({
+                    "object_type": "text",
+                    "text": text,
+                    "link": {
+                        "web_url": "https://web-production-e5054.up.railway.app",
+                        "mobile_web_url": "https://web-production-e5054.up.railway.app"
+                    }
+                })
+            },
+            timeout=5
+        )
+
+        print("[INFO] kakao send", res.status_code, res.text)
+        return res
+
+    except Exception as e:
+        print("[ERROR] kakao exception", e)
+        return None
 
 # =========================
 # 안전한 JSON 로드/저장
@@ -318,62 +315,44 @@ def safe_save(path, data):
 # 새 슬롯 감지
         
 def detect_new_slots(facilities, availability):
-    import json, os
-
-    # 이전 발송 기록
-    sent = safe_load("last_slots.json")
-
-    # 알람 기준선
-    baseline = safe_load("alarm_baseline.json")
+    sent = safe_load("last_slots.json", {})
+    baseline = safe_load("alarm_baseline.json", {})
 
     new_slots = []
 
     for cid, days in availability.items():
-        title = facilities.get(cid, {}).get("title", "")
+        title = facilities.get(cid, {}).get("title", "알 수 없음")
 
         for date, slots in days.items():
             for s in slots:
                 key = f"{cid}|{date}|{s['timeContent']}"
 
-                # 1️⃣ baseline에 있으면 무시
-                if any(
-                    isinstance(user_base, dict) and key in user_base
-                    for user_base in baseline.values()
-                ):
+                # 1️⃣ baseline 차단
+                if any(key in user_base for user_base in baseline.values()):
                     continue
 
-                # 2️⃣ 이미 알림 보냈으면 무시
-                if key in sent:
+                # 2️⃣ 이미 발송된 슬롯 차단
+                if sent.get(key):
                     continue
 
-                # 3️⃣ 새 슬롯
                 new_slots.append({
                     "key": key,
+                    "cid": cid,
                     "court_title": title,
                     "date": date,
                     "time": s["timeContent"]
                 })
 
-                # sent는 여기서만 기록
                 sent[key] = True
 
-    # sent 저장 (항상 JSON 보장)
-    with open("last_slots.json", "w", encoding="utf-8") as f:
-        json.dump(sent, f, ensure_ascii=False, indent=2)
-
+    safe_save("last_slots.json", sent)
     return new_slots
-
-
-
-def load_users():
-    if not os.path.exists("users.json"):
-        return {}
-    with open("users.json", "r", encoding="utf-8") as f:
-        return json.load(f)
+# =========================
+# 카카오 알림 발송
 
 def trigger_kakao_alerts(new_slots):
-    users = load_users()
-    alarms = load_alarms()
+    users = safe_load("users.json", {})
+    alarms = safe_load("alarms.json", {})
 
     for slot in new_slots:
         for alarm in alarms:
@@ -418,4 +397,57 @@ def save_alarm_baseline(user_id):
     baseline[user_id] = snapshot
 
     safe_save("alarm_baseline.json", baseline)
+# =========================
+def crawl_all():
+    return run_all() 
+# =========================
+def send_notifications(new_slots):
+    if not new_slots:
+        return
+
+    alarms = safe_load("alarms.json", {})
+    users = safe_load("users.json", {})
+
+    for user_id, user_alarms in alarms.items():
+        user = users.get(user_id)
+        if not user:
+            continue
+
+        access_token = user.get("access_token")
+        if not access_token:
+            continue
+
+        for slot in new_slots:
+            # 🔒 기존 로직 유지: 조건 맞을 때만 발송
+            if not match_alarm(user_alarms, slot):
+                continue
+
+            text = (
+                f"🎾 예약 가능 알림\n"
+                f"{slot['court_title']}\n"
+                f"{slot['date']} {slot['time']}"
+            )
+
+            send_kakao_message(access_token, text)
+# =========================
+def match_alarm(user_alarms, slot):
+    """
+    user_alarms: 해당 사용자가 등록한 알람 리스트
+    slot: detect_new_slots에서 발견한 슬롯(dict)
+    """
+
+    for alarm in user_alarms:
+        # 1️⃣ 날짜 비교
+        if alarm.get("date") != slot.get("date"):
+            continue
+
+        # 2️⃣ 코트 그룹 비교
+        court_group = alarm.get("court_group", "")
+        if court_group and court_group not in slot.get("court_title", ""):
+            continue
+
+        # 조건 모두 만족
+        return True
+
+    return False
 # =========================
