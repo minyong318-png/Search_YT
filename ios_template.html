@@ -193,7 +193,7 @@ button{
 
   <!-- 알람 -->
   <div class="card">
-    <h3>🔔 알람 등록</h3>
+    <h3>🔔 알람 등록(나에게 보낸 메시지로 전송되어 알람이 울리지 않습니다)</h3>
     <div class="alarm-stack">
       <div class="select">
         🎾
@@ -457,6 +457,7 @@ alarmBtn.onclick = async () => {
     loadAlarms();
     alert("알람 등록 완료");
   }
+  loadAlarms();
 };
 async function init() {
   await loadMe().catch(()=>{});
