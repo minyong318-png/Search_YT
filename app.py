@@ -288,18 +288,37 @@ def send_kakao_message(access_token, text):
     }
     return requests.post(url, headers=headers, data=data)
 
+# =========================
+# 안전한 JSON 로드/저장
+
+def safe_load(path, default=None):
+    if default is None:
+        default = {}
+
+    if not os.path.exists(path):
+        return default
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else default
+    except Exception as e:
+        print(f"[WARN] JSON load failed: {path} | {e}")
+        return default
+
+
+def safe_save(path, data):
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[ERROR] JSON save failed: {path} | {e}")
+
+# =========================
+# 새 슬롯 감지
+        
 def detect_new_slots(facilities, availability):
     import json, os
-
-    def safe_load(path):
-        if not os.path.exists(path):
-            return {}
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data if isinstance(data, dict) else {}
-        except (json.JSONDecodeError, ValueError):
-            return {}
 
     # 이전 발송 기록
     sent = safe_load("last_slots.json")
@@ -386,14 +405,10 @@ def trigger_kakao_alerts(new_slots):
 # 알람 기준 저장
 # =========================
 def save_alarm_baseline(user_id):
-    import json, os
-
-    baseline = {}
-    if os.path.exists("alarm_baseline.json"):
-        with open("alarm_baseline.json", "r", encoding="utf-8") as f:
-            baseline = json.load(f)
+    baseline = safe_load("alarm_baseline.json", {})
 
     snapshot = {}
+
     for cid, days in CACHE["availability"].items():
         for date, slots in days.items():
             for s in slots:
@@ -402,5 +417,5 @@ def save_alarm_baseline(user_id):
 
     baseline[user_id] = snapshot
 
-    with open("alarm_baseline.json", "w", encoding="utf-8") as f:
-        json.dump(baseline, f, ensure_ascii=False, indent=2)
+    safe_save("alarm_baseline.json", baseline)
+# =========================
