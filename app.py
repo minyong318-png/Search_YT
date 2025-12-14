@@ -176,6 +176,9 @@ def alarm_list():
         return jsonify([])
 
     alarms = safe_load("alarms.json", [])
+    if not isinstance(alarms, list):
+       alarms = []
+
     return jsonify([a for a in alarms if a.get("user_id") == user_id])
 
 @app.route("/alarm/add", methods=["POST"])
@@ -186,6 +189,9 @@ def alarm_add():
 
     body = request.json
     alarms = safe_load("alarms.json", [])
+    if not isinstance(alarms, list):
+       alarms = []
+
     for a in alarms:
         if (
             a["user_id"] == user_id and
@@ -222,6 +228,9 @@ def me():
         return jsonify({"logged_in": False})
 
     users = safe_load("users.json", {})
+    if not isinstance(users , dict):
+       users = {}
+
     user = users.get(user_id)
 
     # 🔥 users.json에 정보 없으면 로그아웃 처리
@@ -248,6 +257,9 @@ def alarm_delete():
     date = body.get("date")
 
     alarms = safe_load("alarms.json", [])
+    if not isinstance(alarms, list):
+       alarms = []
+
     alarms = [
         a for a in alarms
         if not (
@@ -269,6 +281,9 @@ def test_kakao():
         return "로그인 필요", 401
 
     users = safe_load("users.json", {})
+    if not isinstance(users , dict):
+       users = {}
+
     user = users.get(user_id)
     if not user:
         return "유저 정보 없음", 400
@@ -387,7 +402,13 @@ def detect_new_slots(facilities, availability):
 
 def trigger_kakao_alerts(new_slots):
     users = safe_load("users.json", {})
+    if not isinstance(users , dict):
+       users = {}
+
     alarms = safe_load("alarms.json", [])
+    if not isinstance(alarms, list):
+       alarms = []
+
     
     # 🔹 사용자별로 보낼 슬롯 모으기
     user_messages = defaultdict(list)
@@ -454,9 +475,15 @@ def send_notifications(new_slots):
         return
 
     alarms = safe_load("alarms.json", [])
-    users = safe_load("users.json", {})
+    if not isinstance(alarms, list):
+       alarms = []
 
-    for user_id, user_alarms in alarms.items():
+    users = safe_load("users.json", {})
+    if not isinstance(users , dict):
+       users = {}
+
+
+    for user_id, user_alarms in alarms:
         user = users.get(user_id)
         if not user:
             continue
