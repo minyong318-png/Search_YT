@@ -1,8 +1,10 @@
 from flask import Flask, jsonify, request, send_file, redirect, session
 from datetime import datetime,timezone,timedelta
+from collections import defaultdict
 import os, json, traceback, requests
 import threading
 import time
+import queue
 
 from tennis_core import run_all
 from alarm_store import load_alarms, save_alarms, cleanup_old_alarms
@@ -272,7 +274,8 @@ def send_kakao_message(access_token, text):
                     "link": {
                         "web_url": "https://web-production-e5054.up.railway.app",
                         "mobile_web_url": "https://web-production-e5054.up.railway.app"
-                    }
+                    },
+                    "button_title": "예약하러 가기"
                 })
             },
             timeout=5
@@ -326,7 +329,7 @@ def detect_new_slots(facilities, availability):
         for date, slots in days.items():
             for s in slots:
                 key = f"{cid}|{date}|{s['timeContent']}"
-
+                
                 # 1️⃣ baseline 차단
                 if any(key in user_base for user_base in baseline.values()):
                     continue
@@ -340,7 +343,7 @@ def detect_new_slots(facilities, availability):
                     "cid": cid,
                     "court_title": title,
                     "date": date,
-                    "time": s["timeContent"]
+                    "time": s["timeContent"],
                 })
 
                 sent[key] = True
@@ -352,34 +355,46 @@ def detect_new_slots(facilities, availability):
 
 def trigger_kakao_alerts(new_slots):
     users = safe_load("users.json", {})
-    alarms = safe_load("alarms.json", {})
+    alarms = safe_load("alarms.json", [])
+    
+    # 🔹 사용자별로 보낼 슬롯 모으기
+    user_messages = defaultdict(list)
 
     for slot in new_slots:
         for alarm in alarms:
-            # 코트 그룹 매칭 (부분 포함)
+
+            # 1️⃣ 코트 그룹 매칭
             if alarm["court_group"] not in slot["court_title"]:
                 continue
 
-            # 날짜 매칭 (YYYYMMDD ↔ YYYY-MM-DD)
+            # 2️⃣ 날짜 매칭 (YYYYMMDD ↔ YYYY-MM-DD)
             slot_date = slot["date"]
             alarm_date = alarm["date"].replace("-", "")
             if slot_date != alarm_date:
                 continue
 
             user_id = alarm["user_id"]
-            user = users.get(user_id)
-            if not user:
+            if user_id not in users:
                 continue
 
-            msg = (
-                "🎾 테니스 예약 알림\n\n"
-                f"{slot['court_title']}\n"
-                f"{slot_date[4:6]}.{slot_date[6:8]} "
-                f"{slot['time']}\n\n"
-                "지금 예약 가능합니다!"
+            # 🔹 여기서는 "보내지 말고" 모으기만 함
+            user_messages[user_id].append(slot)
+
+    # 🔔 여기서 사용자당 1번만 발송
+    for user_id, slots in user_messages.items():
+        user = users[user_id]
+        reserve_url = make_reserve_link("slot['court_title']")
+        msg_lines = ["🎾 테니스 예약 알림\n"]
+        group = alarm["court_group"]
+        for s in slots:
+            msg_lines.append(
+                f"• [{group}] {s['court_title']}\n"
+                f"  {s['date'][4:6]}.{s['date'][6:8]} {s['time']}"
+                "👉 지금 예약 가능합니다!\n"
+                f"🔗 예약하러 가기\n{reserve_url}"
             )
 
-            send_kakao_message(user["access_token"], msg)
+        send_kakao_message(user["access_token"], msg_lines)
 # =========================
 # 알람 기준 저장
 # =========================
@@ -421,11 +436,13 @@ def send_notifications(new_slots):
             # 🔒 기존 로직 유지: 조건 맞을 때만 발송
             if not match_alarm(user_alarms, slot):
                 continue
-
+            reserve_url = make_reserve_link("slot['court_title']")
             text = (
                 f"🎾 예약 가능 알림\n"
-                f"{slot['court_title']}\n"
-                f"{slot['date']} {slot['time']}"
+                f"• {slot['court_title']}\n"
+                f"  {slot['date'][4:6]}.{slot['date'][6:8]} {slot['time']}"
+                "👉 지금 예약 가능합니다!\n"
+                f"🔗 예약하러 가기\n{reserve_url}"
             )
 
             send_kakao_message(access_token, text)
@@ -451,3 +468,19 @@ def match_alarm(user_alarms, slot):
 
     return False
 # =========================
+def group_slots_by_user(new_slots):
+    grouped = defaultdict(list)
+    for s in new_slots:
+        grouped[s["user_id"]].append(s)
+    return grouped
+# =========================
+def make_reserve_link(court_title):
+    base = "https://publicsports.yongin.go.kr/publicsports/sports/selectFcltyRceptResveViewU.do"
+    return (
+        f"{base}"
+        f"?key=4236"
+        f"&pageUnit=8"
+        f"&pageIndex=1"
+        f"&searchKrwd={quote(court_title)}"
+        f"&checkSearchMonthNow=false"
+    )

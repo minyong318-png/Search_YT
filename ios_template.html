@@ -338,6 +338,12 @@ alarmDate.onchange=()=>{
   alarmDateLabel.textContent = alarmDate.value;
 };
 
+function makeReserveLink(title){
+  const base = "https://publicsports.yongin.go.kr/publicsports/sports/selectFcltyRceptResveViewU.do";
+  return `${base}?key=4236&pageUnit=8&pageIndex=1&searchKrwd=${encodeURIComponent(title)}&checkSearchMonthNow=false`;
+}
+
+
 function renderCourts(){
   courts.innerHTML="";
   const gu=filterGu.value;
@@ -369,7 +375,14 @@ function renderCourts(){
         </div>
         <div class="slots">`;
       days[d].forEach(s=>{
-        html+=`<div class="slot">${s.timeContent}</div>`;
+        const link = makeReserveLink(fac.title);
+
+        html+=`
+          <a class="slot"
+            href="${link}"
+            target="_blank">
+            ${s.timeContent}
+          </a>`;
       });
       html+=`</div></div>`;
     }
