@@ -232,7 +232,7 @@ def alarm_delete():
     court = body.get("court_group")
     date = body.get("date")
 
-    alarms = safe_load("alarms.json", {})
+    alarms = safe_load("alarms.json", [])
     alarms = [
         a for a in alarms
         if not (
