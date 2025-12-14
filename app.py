@@ -61,6 +61,7 @@ def kakao_login():
         "?response_type=code"
         f"&client_id={KAKAO_REST_API_KEY}"
         f"&redirect_uri={KAKAO_REDIRECT_URI}"
+        "&scope=talk_message"
     )
     return redirect(url)
 
