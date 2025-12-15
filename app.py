@@ -482,6 +482,8 @@ def send_notifications(new_slots):
     if not isinstance(users , dict):
        users = {}
     
+    alarms_by_user = defaultdict(list)
+    
     for alarm in alarms:
         uid = alarm.get("user_id")
         if uid:
