@@ -150,24 +150,26 @@ def refresh():
     except Exception as e:
         print("[ERROR] crawl failed", e)
         return "crawl failed", 500
+
 	try:
-    	new_availability ={}
-        for cid, days in availability.items():
+    	new_availability = {}
+	    for cid, days in availability.items():
             new_availability[cid] = {}
             for date, slots in days.items():
-                new_availability[cid][data] = []
-                for s in slots:
-                    new_availabitiy[cid][date].append({
-                    	"timeContent" : s.get("timeContent"),
-                        "resveId" : s.get("resveId"),
-                    })
-        CACHE["facilities"] = facilities
-        CACHE["availability"] = new_availability
-        CACHE["updated_at"] = datetime.now(KST).isoformat()
+	   			new_availability[cid][date] = []
+            	for s in slots:
+					new_availability[cid][date].append({
+					"timeContent": s.get("timeContent"),
+					"resveId": s.get("resveId"),
+					})
+		CACHE["facilities"] = facilities
+		CACHE["availability"] = new_availability
+		CACHE["updated_at"] = datetime.now(KST).isoformat()
+        print("[INFO] CACHE updated in /refresh")
     except Exception as e:
-        print("[ERROR] cache update failed", e)
-        
-    try:
+		print("[ERROR] cache update failed", e)
+	       
+	try:
         new_slots = detect_new_slots(facilities, availability)
     except Exception as e:
         print("[ERROR] detect failed", e)
