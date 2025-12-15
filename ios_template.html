@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎾 용인 테니스 예약</title>
@@ -477,6 +479,26 @@ async function init() {
   await loadData();
 }
 
+function isDesktop() {
+  return !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+
+if (isDesktop()) {
+  flatpickr("#filterDate", {
+    dateFormat: "Y-m-d",
+    onChange: function(selectedDates, dateStr) {
+      filterDateLabel.textContent = dateStr;
+      renderCourts();
+    }
+  });
+
+  flatpickr("#alarmDate", {
+    dateFormat: "Y-m-d",
+    onChange: function(selectedDates, dateStr) {
+      alarmDateLabel.textContent = dateStr;
+    }
+  });
+}
 
 filterGu.onchange=renderCourts;
 filterCourt.onchange=renderCourts;
