@@ -481,9 +481,13 @@ def send_notifications(new_slots):
     users = safe_load("users.json", {})
     if not isinstance(users , dict):
        users = {}
+    
+    for alarm in alarms:
+        uid = alarm.get("user_id")
+        if uid:
+            alarms_by_user[uid].append(alarm)
 
-
-    for user_id, user_alarms in alarms:
+    for user_id, user_alarms in alarms_by_user.items():
         user = users.get(user_id)
         if not user:
             continue
