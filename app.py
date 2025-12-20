@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request, send_file, redirect, session, send_from_directory
 from datetime import datetime,timezone,timedelta
 from collections import defaultdict
-import os, json, traceback, requests
+import os, json, traceback, requests, re
 import threading
 import time
 import queue
@@ -86,6 +86,20 @@ def init_db():
                 );
             """)
 
+            # ✅ baseline_slots 테이블 (이게 핵심)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS baseline_slots (
+                    id SERIAL PRIMARY KEY,
+                    subscription_id TEXT NOT NULL,
+                    cid TEXT NOT NULL,
+                    date CHAR(8) NOT NULL,
+                    time_content TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE (subscription_id, cid, date, time_content)
+                );
+            """)
+        conn.commit()
+
 @app.before_request
 def ensure_db_initialized():
     global db_initialized
@@ -135,7 +149,7 @@ def index():
 def data():
     if not CACHE["updated_at"]:
         try:
-            facilities, raw_availability = run_all()
+            facilities, raw_availability = crawl_all()
             availability = {}
             for cid, days in raw_availability.items():
                 availability[cid] = {}
@@ -167,9 +181,13 @@ def data():
 @app.route("/refresh")
 def refresh():
     print("[INFO] refresh start")
-
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cleanup_old_alarm_data(cur)
+        conn.commit()
     try:
         facilities, availability = crawl_all()
+        court_group_map = build_court_group_map(facilities)
     except Exception as e:
         print("[ERROR] crawl failed", e)
         return "crawl failed", 500
@@ -195,13 +213,10 @@ def refresh():
         print("[INFO] CACHE updated in /refresh")
     except Exception as e:
         print("[ERROR] cache update failed", e)
-        
-    try:
-        new_slots = detect_new_slots(facilities, availability)
-        print("[DEBUG] new_slots count =", len(new_slots))
-    except Exception as e:
-        print("[ERROR] detect failed", e)
-        new_slots = []
+    
+    # ✅ 여기!
+    court_group_map = build_court_group_map(facilities)
+    current_slots = flatten_slots(facilities, availability)
 
     try:
         with get_db() as conn:
@@ -222,10 +237,39 @@ def refresh():
 
                 fired = 0
 
-                for slot in new_slots:
-                    for alarm in alarms:
-                        if not match_alarm_condition(alarm, slot):
+                for alarm in alarms:
+                    subscription_id = alarm["subscription_id"]
+                    alarm_group = alarm["court_group"]
+                    alarm_date = alarm["date"]
+
+                    group_cids = court_group_map.get(alarm_group, [])
+                    if not group_cids:
+                        continue
+
+                    # baseline 로드
+                    cur.execute("""
+                        SELECT cid, date, time_content
+                        FROM baseline_slots
+                        WHERE subscription_id = %s
+                    """, (subscription_id,))
+
+                    baseline = set()
+                    for r in cur.fetchall():
+                        baseline.add(f"{r['cid']}|{r['date']}|{r['time_content']}")
+
+
+                    alarm_fired = False
+                    for slot in current_slots:
+                        if alarm_fired:
+                            break
+                        key = f"{slot['cid']}|{slot['date']}|{slot['time']}"
+
+                        if slot["cid"] not in group_cids:
                             continue
+                        if slot["date"] != alarm_date:
+                            continue
+                        if key in baseline:
+                            continue   # ❌ 기존 슬롯
 
                         subscription_id = alarm["subscription_id"]
                         sub = subs_map.get(subscription_id)
@@ -242,19 +286,31 @@ def refresh():
                                 continue
 
                         # 🔔 발송
-                        send_push_notification(
+                        try:
+                            send_push_notification(
                             sub,
                             title="🎾 예약 가능 알림",
                             body=f"{slot['court_title']} {slot['date']} {slot['time']}"
                         )
+                        except Exception:
+                            continue  # baseline 기록 안 함
+                        
+                        add_to_baseline(
+                            cur,
+                            subscription_id,
+                            slot["cid"],
+                            slot["date"],
+                            slot["time"]
+                        )
 
+                        alarm_fired = True
                         # ✅ 발송 성공 후 기록 (사용자별)
                         if not slot.get("is_test", False):
                             cur.execute("""
                                 INSERT INTO sent_slots (subscription_id, slot_key)
                                 VALUES (%s, %s)
                                 ON CONFLICT DO NOTHING
-                            """, (subscription_id, slot["key"]))
+                            """, (subscription_id, key))
 
                         fired += 1
 
@@ -306,11 +362,16 @@ def push_subscribe():
 # =========================
 @app.route("/alarm/add", methods=["POST"])
 def alarm_add():
-    body = request.json or {}
+    data = request.json
+    subscription_id = data["subscription_id"]
+    court_group = data["court_group"]
+    date = data["date"]
 
-    subscription_id = body.get("subscription_id")
-    court_group = body.get("court_group")
-    date = body.get("date")
+    facilities = CACHE["facilities"]
+    availability = CACHE["availability"]
+
+    court_group_map = build_court_group_map(facilities)
+    group_cids = court_group_map.get(court_group, [])
 
     if not subscription_id or not court_group or not date:
         return jsonify({"error": "invalid request"}), 400
@@ -318,17 +379,32 @@ def alarm_add():
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
+
+                # 1️⃣ 알람 저장
                 cur.execute("""
                     INSERT INTO alarms (subscription_id, court_group, date)
                     VALUES (%s, %s, %s)
-                    ON CONFLICT (subscription_id, court_group, date)
-                    DO NOTHING
+                    ON CONFLICT DO NOTHING
                 """, (subscription_id, court_group, date))
 
-                if cur.rowcount == 0:
-                    return jsonify({"status": "duplicate"})
+                # 2️⃣ baseline 저장
+                for cid in group_cids:
+                    for slot in availability.get(cid, {}).get(date, []):
+                        cur.execute("""
+                            INSERT INTO baseline_slots
+                            (subscription_id, cid, date, time_content)
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT DO NOTHING
+                        """, (
+                            subscription_id,
+                            cid,
+                            date,
+                            slot["timeContent"]
+                        ))
 
-        return jsonify({"status": "added"})
+            conn.commit()
+
+        return jsonify({"status": "ok"})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -409,44 +485,6 @@ def safe_save(path, data):
         print(f"[ERROR] JSON save failed: {path} | {e}")
 
 # =========================
-# 새 슬롯 감지
-# =========================
-      
-def detect_new_slots(facilities, availability):
-    new_slots = []
-    for cid, days in availability.items():
-        title = facilities.get(cid, {}).get("title", "알 수 없음")
-        for date, slots in days.items():
-            for s in slots:
-                key = f"{cid}|{date}|{s['timeContent']}"
-                new_slots.append({
-                    "key": key,
-                    "cid": cid,
-                    "court_title": title,
-                    "date": date,
-                    "time": s["timeContent"],
-                    "is_test": s.get("is_test", False),
-                })
-    return new_slots
-
-# =========================
-# 알람 조건과 슬롯 매칭
-# =========================
-
-def match_alarm_condition(alarm, slot):
-    # 날짜 비교 (YYYY-MM-DD ↔ YYYYMMDD)
-    alarm_date = alarm.get("date", "").replace("-", "")
-    if alarm_date != slot.get("date"):
-        return False
-
-    # 코트 그룹 이름 포함 여부
-    court_group = alarm.get("court_group", "")
-    if court_group and court_group not in slot.get("court_title", ""):
-        return False
-
-    return True
-
-# =========================
 # 전체 크롤링 실행
 # =========================
 def crawl_all():
@@ -481,6 +519,110 @@ def send_push_notification(subscription, title, body):
         }
     )
 
+# =========================
+# 기준선 슬롯 존재 여부 확인
+# =========================
+
+def is_in_baseline(cur, subscription_id, cid, date, time_content):
+    cur.execute("""
+        SELECT 1
+        FROM baseline_slots
+        WHERE subscription_id = %s
+          AND cid = %s
+          AND date = %s
+          AND time_content = %s
+        LIMIT 1
+    """, (subscription_id, cid, date, time_content))
+
+    return cur.fetchone() is not None
+
+# =========================
+# 기준선 슬롯 추가
+# =========================
+def add_to_baseline(cur, subscription_id, cid, date, time_content):
+    cur.execute("""
+        INSERT INTO baseline_slots (subscription_id, cid, date, time_content)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT DO NOTHING
+    """, (subscription_id, cid, date, time_content))
+
+# =========================
+# 기준선 슬롯 정리
+# =========================
+def cleanup_old_alarm_data(cur):
+    today = datetime.now(KST).strftime("%Y%m%d")
+
+    cur.execute("""
+        DELETE FROM alarms
+        WHERE date < %s
+    """, (today,))
+
+    cur.execute("""
+        DELETE FROM baseline_slots
+        WHERE date < %s
+    """, (today,))
+
+    cur.execute("""
+        DELETE FROM sent_slots
+        WHERE sent_at < NOW() - INTERVAL '1 day';
+    """, (f"%|{today}%",))
+
+
+# =========================
+# 코트 그룹 추출
+# =========================
+def get_court_group(title: str) -> str:
+    if not title:
+        return ""
+
+    # [유료], [무료] 같은 대괄호 제거
+    title = re.sub(r"\[.*?\]", "", title)
+
+    # '테니스장' 앞까지만 사용
+    if "테니스장" in title:
+        title = title.split("테니스장")[0]
+
+    return title.strip()
+
+# =========================
+# 코트 그룹 맵 빌드
+# =========================
+def build_court_group_map(facilities: dict) -> dict:
+    """
+    {
+      "남사": ["10153", "10154"],
+      "죽전": ["10201"]
+    }
+    """
+    group_map = {}
+
+    for cid, info in facilities.items():
+        title = info.get("title", "")
+        group = get_court_group(title)
+        if not group:
+            continue
+
+        group_map.setdefault(group, []).append(cid)
+
+    return group_map
+
+# =========================
+# 슬롯 평탄화
+# =========================
+def flatten_slots(facilities, availability):
+    slots = []
+    for cid, days in availability.items():
+        title = facilities.get(cid, {}).get("title", "")
+        for date, items in days.items():
+            for s in items:
+                slots.append({
+                    "cid": cid,
+                    "court_title": title,
+                    "date": date,
+                    "time": s["timeContent"],
+                    "key": f"{cid}|{date}|{s['timeContent']}"
+                })
+    return slots
 
 def inject_test_slot(facilities, availability):
     # 🔥 반드시 문자열
