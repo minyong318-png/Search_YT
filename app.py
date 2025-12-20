@@ -366,13 +366,32 @@ def alarm_add():
 
     subscription_id = data.get("subscription_id")
     court_group = data.get("court_group")
-    date_raw = data.get("date")          # "2025-12-22"
+    date_raw = data.get("date")
 
     if not subscription_id or not court_group or not date_raw:
         return jsonify({"error": "invalid request"}), 400
 
-    # 🔥 핵심 1: 날짜 포맷 통일 (YYYYMMDD)
-    date = date_raw.replace("-", "")      # "20251222"
+    date = date_raw.replace("-", "")  # YYYYMMDD
+
+    # 🔥 핵심: CACHE 비어 있으면 강제 크롤
+    if not CACHE["availability"]:
+        facilities, raw_availability = crawl_all()
+
+        availability = {}
+        for cid, days in raw_availability.items():
+            availability[cid] = {}
+            for d, slots in days.items():
+                availability[cid][d] = [
+                    {
+                        "timeContent": s.get("timeContent"),
+                        "resveId": s.get("resveId"),
+                    }
+                    for s in slots
+                ]
+
+        CACHE["facilities"] = facilities
+        CACHE["availability"] = availability
+        CACHE["updated_at"] = datetime.now(KST).isoformat()
 
     facilities = CACHE["facilities"]
     availability = CACHE["availability"]
@@ -384,17 +403,16 @@ def alarm_add():
         with get_db() as conn:
             with conn.cursor() as cur:
 
-                # 1️⃣ 알람 저장
+                # 알람 저장
                 cur.execute("""
                     INSERT INTO alarms (subscription_id, court_group, date)
                     VALUES (%s, %s, %s)
                     ON CONFLICT DO NOTHING
                 """, (subscription_id, court_group, date))
 
-                # 2️⃣ baseline 저장 (🔥 이제 정상 작동)
+                # 🔥 baseline 저장 (이제 무조건 돈다)
                 for cid in group_cids:
-                    day_slots = availability.get(cid, {}).get(date, [])
-                    for slot in day_slots:
+                    for slot in availability.get(cid, {}).get(date, []):
                         cur.execute("""
                             INSERT INTO baseline_slots
                             (subscription_id, cid, date, time_content)
@@ -409,7 +427,6 @@ def alarm_add():
 
             conn.commit()
 
-        # 🔥 핵심 2: 프론트와 상태값 통일
         return jsonify({"status": "added"})
 
     except Exception as e:
