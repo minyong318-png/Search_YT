@@ -8,4 +8,3 @@ aiohttp
 pywebpush
 cryptography
 psycopg2-binary
-hashlib

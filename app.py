@@ -77,6 +77,15 @@ def init_db():
                 );
             """)
 
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS sent_slots (
+                    subscription_id TEXT NOT NULL,
+                    slot_key TEXT NOT NULL,
+                    sent_at TIMESTAMP DEFAULT NOW(),
+                    PRIMARY KEY (subscription_id, slot_key)
+                );
+            """)
+
 @app.before_request
 def ensure_db_initialized():
     global db_initialized
@@ -189,11 +198,7 @@ def refresh():
         
     try:
         new_slots = detect_new_slots(facilities, availability)
-        print("[DEBUG] test mode =", request.args.get("test"))
-        print("[DEBUG] new_slots =", new_slots)
-        print("[DEBUG] alarms =", alarms)
-
-
+        print("[DEBUG] new_slots count =", len(new_slots))
     except Exception as e:
         print("[ERROR] detect failed", e)
         new_slots = []
@@ -207,48 +212,61 @@ def refresh():
                 cur.execute("SELECT * FROM push_subscriptions")
                 subs = cur.fetchall()
 
-        for slot in new_slots:
-            for alarm in alarms:
+                # ✅ subs_map 정의 (id -> subscription dict)
+                subs_map = {}
+                for s in subs:
+                    subs_map[s["id"]] = {
+                        "endpoint": s["endpoint"],
+                        "keys": {"p256dh": s["p256dh"], "auth": s["auth"]},
+                    }
 
-                if not match_alarm_condition(slot, alarm):
-                    continue
+                fired = 0
 
-                subscription_id = alarm["subscription_id"]
+                for slot in new_slots:
+                    for alarm in alarms:
+                        if not match_alarm_condition(alarm, slot):
+                            continue
 
-                # 🔒 사용자별 sent 체크
-                cur.execute("""
-                    SELECT 1 FROM sent_slots
-                    WHERE subscription_id = %s
-                    AND slot_key = %s
-                """, (subscription_id, slot["key"]))
+                        subscription_id = alarm["subscription_id"]
+                        sub = subs_map.get(subscription_id)
+                        if not sub:
+                            continue
 
-                if cur.fetchone():
-                    continue  # 이미 이 사용자에게 보냄
+                        # ✅ 테스트 슬롯은 중복 체크/기록에서 제외(반복 테스트용)
+                        if not slot.get("is_test", False):
+                            cur.execute("""
+                                SELECT 1 FROM sent_slots
+                                WHERE subscription_id = %s AND slot_key = %s
+                            """, (subscription_id, slot["key"]))
+                            if cur.fetchone():
+                                continue
 
-                sub = subs_map.get(subscription_id)
-                if not sub:
-                    continue
+                        # 🔔 발송
+                        send_push_notification(
+                            sub,
+                            title="🎾 예약 가능 알림",
+                            body=f"{slot['court_title']} {slot['date']} {slot['time']}"
+                        )
 
-                # 🔔 push 발송
-                send_push_notification(
-                    sub,
-                    title="🎾 예약 가능 알림",
-                    body=f"{slot['court_title']} {slot['date']} {slot['time']}"
-                )
+                        # ✅ 발송 성공 후 기록 (사용자별)
+                        if not slot.get("is_test", False):
+                            cur.execute("""
+                                INSERT INTO sent_slots (subscription_id, slot_key)
+                                VALUES (%s, %s)
+                                ON CONFLICT DO NOTHING
+                            """, (subscription_id, slot["key"]))
 
-                # ✅ 발송 성공 후 기록
-                cur.execute("""
-                    INSERT INTO sent_slots (subscription_id, slot_key)
-                    VALUES (%s, %s)
-                """, (subscription_id, slot["key"]))
+                        fired += 1
 
+            conn.commit()
+
+        print(f"[INFO] refresh done (fired={fired})")
+        return "ok"
 
     except Exception as e:
         print("[ERROR] push notification failed", e)
         traceback.print_exc()
-
-    print(f"[INFO] refresh done (new={len(new_slots)})")
-    return "ok"
+        return "push failed", 500
 
 # =========================
 # Push 구독 저장 API
@@ -396,32 +414,20 @@ def safe_save(path, data):
       
 def detect_new_slots(facilities, availability):
     new_slots = []
-
-    with get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT slot_key FROM sent_slots")
-            sent_keys = {r[0] for r in cur.fetchall()}
-
     for cid, days in availability.items():
         title = facilities.get(cid, {}).get("title", "알 수 없음")
-
         for date, slots in days.items():
             for s in slots:
                 key = f"{cid}|{date}|{s['timeContent']}"
-
-                if key in sent_keys:
-                    continue
-
                 new_slots.append({
                     "key": key,
                     "cid": cid,
                     "court_title": title,
                     "date": date,
                     "time": s["timeContent"],
+                    "is_test": s.get("is_test", False),
                 })
-
     return new_slots
-
 
 # =========================
 # 알람 조건과 슬롯 매칭
