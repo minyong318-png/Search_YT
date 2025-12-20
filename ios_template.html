@@ -307,11 +307,6 @@ async function loadData() {
       credentials: "same-origin"
     });
 
-    const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      throw new Error("Not JSON response");
-    }
-
     const data = await res.json();
 
     DATA = data;
@@ -549,6 +544,9 @@ alarmBtn.onclick = async () => {
   loadMyAlarms();
 };
 
+function isDesktop() {
+  return window.innerWidth >= 768;
+}
 
 
 if (isDesktop()) {
@@ -577,13 +575,17 @@ async function init() {
     await loadMyAlarms();
 
   } catch (e) {
-    console.error("init error:", e);
+    alert("init error:", e);
   }
 }
 
 filterGu.onchange=renderCourts;
 filterCourt.onchange=renderCourts;
-init();
+
+window.addEventListener("load", () => {
+  init();
+});
+
 </script>
 </body>
 </html>
