@@ -332,7 +332,7 @@ async function loadData() {
 
 function renderUpdatedTime(updatedAt) {
   if (!updatedAt) {
-    document.getElementById("updatedTime").innerText =
+    document.getElementById("updatedAt").innerText =
       "마지막 업데이트 : 정보 없음";
     return;
   }
@@ -550,6 +550,7 @@ alarmBtn.onclick = async () => {
 };
 
 
+
 if (isDesktop()) {
   flatpickr("#filterDate", {
     dateFormat: "Y-m-d",
@@ -565,6 +566,19 @@ if (isDesktop()) {
       alarmDateLabel.textContent = dateStr;
     }
   });
+}
+
+async function init() {
+  try {
+    // 1️⃣ 예약 가능 데이터 로드
+    await loadData();
+
+    // 2️⃣ 이 기기의 알람 목록 로드
+    await loadMyAlarms();
+
+  } catch (e) {
+    console.error("init error:", e);
+  }
 }
 
 filterGu.onchange=renderCourts;
