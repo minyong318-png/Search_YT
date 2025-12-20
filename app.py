@@ -86,6 +86,14 @@ def ensure_db_initialized():
     init_db()
     db_initialized = True
 
+import hashlib
+
+def make_subscription_id(subscription):
+    """
+    Web Push subscription → 기기 고유 ID 생성
+    """
+    endpoint = subscription.get("endpoint", "")
+    return hashlib.sha256(endpoint.encode("utf-8")).hexdigest()
 
 # =========================
 # 서비스워커 제공
@@ -201,30 +209,40 @@ def refresh():
 
         for slot in new_slots:
             for alarm in alarms:
-                if not match_alarm_condition(alarm, slot):
+
+                if not match_alarm_condition(slot, alarm):
                     continue
 
-                sub_row = next(
-                    (s for s in subs if s["id"] == alarm["subscription_id"]),
-                    None
-                )
+                subscription_id = alarm["subscription_id"]
 
-                if not sub_row:
-                    continue  # 구독 정보 없으면 skip
+                # 🔒 사용자별 sent 체크
+                cur.execute("""
+                    SELECT 1 FROM sent_slots
+                    WHERE subscription_id = %s
+                    AND slot_key = %s
+                """, (subscription_id, slot["key"]))
 
-                sub = {
-                    "endpoint": sub_row["endpoint"],
-                    "keys": {
-                        "p256dh": sub_row["p256dh"],
-                        "auth": sub_row["auth"]
-                    }
-                }
+                if cur.fetchone():
+                    continue  # 이미 이 사용자에게 보냄
 
+                sub = subs_map.get(subscription_id)
+                if not sub:
+                    continue
+
+                # 🔔 push 발송
                 send_push_notification(
                     sub,
-                    "🎾 예약 가능!",
-                    f"{slot['court_title']}\n{slot['date']} {slot['time']}"
+                    title="🎾 예약 가능 알림",
+                    body=f"{slot['court_title']} {slot['date']} {slot['time']}"
                 )
+
+                # ✅ 발송 성공 후 기록
+                cur.execute("""
+                    INSERT INTO sent_slots (subscription_id, slot_key)
+                    VALUES (%s, %s)
+                """, (subscription_id, slot["key"]))
+
+
     except Exception as e:
         print("[ERROR] push notification failed", e)
         traceback.print_exc()
@@ -375,18 +393,14 @@ def safe_save(path, data):
 # =========================
 # 새 슬롯 감지
 # =========================
-#         
+      
 def detect_new_slots(facilities, availability):
-    sent = safe_load("last_slots.json", {})
-    if not isinstance(sent, dict):
-        sent = {}
-
-    baseline = safe_load("alarm_baseline.json", {})
-    if not isinstance(baseline, dict):
-        baseline = {}
-
-
     new_slots = []
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT slot_key FROM sent_slots")
+            sent_keys = {r[0] for r in cur.fetchall()}
 
     for cid, days in availability.items():
         title = facilities.get(cid, {}).get("title", "알 수 없음")
@@ -394,13 +408,8 @@ def detect_new_slots(facilities, availability):
         for date, slots in days.items():
             for s in slots:
                 key = f"{cid}|{date}|{s['timeContent']}"
-                
-                # 1️⃣ baseline 차단
-                if any(key in user_base for user_base in baseline.values()):
-                    continue
 
-                # 2️⃣ 이미 발송된 슬롯 차단
-                if sent.get(key):
+                if key in sent_keys:
                     continue
 
                 new_slots.append({
@@ -411,10 +420,8 @@ def detect_new_slots(facilities, availability):
                     "time": s["timeContent"],
                 })
 
-                sent[key] = True
-
-    safe_save("last_slots.json", sent)
     return new_slots
+
 
 # =========================
 # 알람 조건과 슬롯 매칭
