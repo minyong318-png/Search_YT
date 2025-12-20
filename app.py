@@ -25,6 +25,7 @@ app.secret_key = os.environ.get("FLASK_SECRET", "tennis-secret")
 # 환경변수 설정
 # =========================
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 KST = timezone(timedelta(hours=9))
 
 # =========================

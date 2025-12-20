@@ -366,9 +366,9 @@ window.addEventListener("touchmove", e => {
     pullIndicator.style.top = (-50 + offset) + "px";
 
     if (diff > PULL_THRESHOLD) {
-      pullIndicator.textContent = "🔄 손을 놓으면 새로고침";
+      pullIndicator.textContent = "🔄 Refresh";
     } else {
-      pullIndicator.textContent = "🔄 아래로 당겨 새로고침";
+      pullIndicator.textContent = "🔄 Refresh";
     }
   }
 }, { passive: false });
@@ -383,7 +383,7 @@ window.addEventListener("touchend", async () => {
   if (indicatorTop > 20) {
     // 🔥 새로고침 트리거
     isRefreshing = true;
-    pullIndicator.textContent = "⏳ 새로고침 중…";
+    pullIndicator.textContent = "⏳ Refreshing...";
     pullIndicator.style.top = "0px";
 
     try {
