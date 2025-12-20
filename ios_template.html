@@ -441,9 +441,6 @@ window.addEventListener("touchend", async () => {
       await loadData();
       await loadMyAlarms();
 
-      document.getElementById("updatedAt").innerText =
-        "마지막 업데이트 : " + renderUpdatedTime(new Date());
-
     } catch (e) {
       alert("새로고침 실패: " + e.message);
     }
