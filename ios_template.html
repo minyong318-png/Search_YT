@@ -347,13 +347,13 @@ let isRefreshing = false;
 const pullIndicator = document.getElementById("pullIndicator");
 const PULL_THRESHOLD = 70; // 당겨야 새로고침되는 거리(px)
 
-document.addEventListener("touchstart", e => {
+window.addEventListener("touchstart", e => {
   if (window.scrollY === 0 && !isRefreshing) {
     pullStartY = e.touches[0].clientY;
   }
 }, { passive: true });
 
-document.addEventListener("touchmove", e => {
+window.addEventListener("touchmove", e => {
   if (pullStartY === null || isRefreshing) return;
 
   const currentY = e.touches[0].clientY;
@@ -373,7 +373,7 @@ document.addEventListener("touchmove", e => {
   }
 }, { passive: false });
 
-document.addEventListener("touchend", async () => {
+window.addEventListener("touchend", async () => {
   if (pullStartY === null || isRefreshing) return;
 
   const indicatorTop = parseInt(pullIndicator.style.top || "-50", 10);
@@ -543,8 +543,14 @@ async function loadMyAlarms() {
     text.textContent = `${a.date} · ${a.court_group}`;
 
     const delBtn = document.createElement("button");
-    delBtn.textContent = "DELETE";
-    delBtn.style.marginLeft = "8px";
+    delBtn.textContent = "✕";
+    delBtn.style.fontSize = "12px";
+    delBtn.style.padding = "2px 6px";
+    delBtn.style.border = "1px solid #ccc";
+    delBtn.style.borderRadius = "4px";
+    delBtn.style.background = "#fff";
+    delBtn.style.color = "#888";
+
 
     delBtn.onclick = async () => {
       if (!confirm("이 알람을 삭제할까요?")) return;
