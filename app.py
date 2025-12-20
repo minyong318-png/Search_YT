@@ -75,8 +75,10 @@ def init_db():
                     created_at TIMESTAMP DEFAULT NOW()
                 );
             """)
+@app.before_first_request
+def setup():
+    init_db()
 
-init_db()
 # =========================
 # 서비스워커 제공
 # =========================

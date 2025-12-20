@@ -212,7 +212,19 @@ button{
 
   <!-- 알람 -->
   <div class="card">
-    <h3>🔔 알람 등록(나에게 보낸 메시지로 전송되어 알람이 울리지 않습니다)</h3>
+    <h3>🔔 알람 등록
+      <button id="noticeBtn"
+        style="
+          font-size:12px;
+          background:none;
+          border:none;
+          color:#666;
+          padding:4px;
+          cursor:pointer;
+        ">
+        ⓘ 알람 등록 유의사항
+      </button>
+    </h3>
     <div class="alarm-stack">
       <div class="select">
         🎾
@@ -244,7 +256,39 @@ button{
   </div>
 
 </div>
+<div id="noticeModal" style="
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:10000;
+">
+  <div style="
+    background:#fff;
+    max-width:320px;
+    margin:15vh auto;
+    padding:16px;
+    border-radius:10px;
+    font-size:14px;
+  ">
+    <h3 style="margin-top:0;">🔔 알람 등록 유의사항</h3>
 
+    <p><b>공통</b><br>
+    • 브라우저 알림 기능이 활성화되어 있어야 합니다.<br>
+    • 알림은 새 예약이 생겼을 때만 발송됩니다.</p>
+
+    <p><b>iPhone(iOS)</b><br>
+    • Safari에서 <b>홈 화면에 추가</b> 후 사용해야 합니다.</p>
+
+    <!-- iOS 안내 이미지 -->
+    <img src="/static/ios_add_home_1.png" style="width:100%;border-radius:6px;">
+    <img src="/static/ios_add_home_2.png" style="width:100%;margin-top:6px;border-radius:6px;">
+
+    <div style="text-align:right;margin-top:12px;">
+      <button id="closeNoticeBtn">닫기</button>
+    </div>
+  </div>
+</div>
 <script>
 const VAPID_PUBLIC_KEY = "BLLOhRZIO4FbSxSapToATz0L5QGkn_0UGBdVrwsp-IeEBfKd_vFyeDXiVsZ8AGJ2Dbv52zDMzQ-LU2qEVng9M7I";
 
@@ -672,6 +716,14 @@ filterCourt.onchange=renderCourts;
 window.addEventListener("load", () => {
   init();
 });
+
+document.getElementById("noticeBtn").onclick = () => {
+  document.getElementById("noticeModal").style.display = "block";
+};
+
+document.getElementById("closeNoticeBtn").onclick = () => {
+  document.getElementById("noticeModal").style.display = "none";
+};
 
 </script>
 </body>
