@@ -362,19 +362,23 @@ def push_subscribe():
 # =========================
 @app.route("/alarm/add", methods=["POST"])
 def alarm_add():
-    data = request.json
-    subscription_id = data["subscription_id"]
-    court_group = data["court_group"]
-    date = data["date"]
+    data = request.json or {}
+
+    subscription_id = data.get("subscription_id")
+    court_group = data.get("court_group")
+    date_raw = data.get("date")          # "2025-12-22"
+
+    if not subscription_id or not court_group or not date_raw:
+        return jsonify({"error": "invalid request"}), 400
+
+    # 🔥 핵심 1: 날짜 포맷 통일 (YYYYMMDD)
+    date = date_raw.replace("-", "")      # "20251222"
 
     facilities = CACHE["facilities"]
     availability = CACHE["availability"]
 
     court_group_map = build_court_group_map(facilities)
     group_cids = court_group_map.get(court_group, [])
-
-    if not subscription_id or not court_group or not date:
-        return jsonify({"error": "invalid request"}), 400
 
     try:
         with get_db() as conn:
@@ -387,9 +391,10 @@ def alarm_add():
                     ON CONFLICT DO NOTHING
                 """, (subscription_id, court_group, date))
 
-                # 2️⃣ baseline 저장
+                # 2️⃣ baseline 저장 (🔥 이제 정상 작동)
                 for cid in group_cids:
-                    for slot in availability.get(cid, {}).get(date, []):
+                    day_slots = availability.get(cid, {}).get(date, [])
+                    for slot in day_slots:
                         cur.execute("""
                             INSERT INTO baseline_slots
                             (subscription_id, cid, date, time_content)
@@ -404,7 +409,8 @@ def alarm_add():
 
             conn.commit()
 
-        return jsonify({"status": "ok"})
+        # 🔥 핵심 2: 프론트와 상태값 통일
+        return jsonify({"status": "added"})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -620,7 +626,8 @@ def flatten_slots(facilities, availability):
                     "court_title": title,
                     "date": date,
                     "time": s["timeContent"],
-                    "key": f"{cid}|{date}|{s['timeContent']}"
+                    "key": f"{cid}|{date}|{s['timeContent']}",
+                    "is_test": s.get("is_test", False)
                 })
     return slots
 
