@@ -725,6 +725,13 @@ document.getElementById("closeNoticeBtn").onclick = () => {
   document.getElementById("noticeModal").style.display = "none";
 };
 
+document.getElementById("noticeModal").onclick = (e) => {
+  if (e.target.id === "noticeModal") {
+    e.target.style.display = "none";
+  }
+};
+
+
 </script>
 </body>
 </html>

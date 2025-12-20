@@ -27,6 +27,7 @@ app.secret_key = os.environ.get("FLASK_SECRET", "tennis-secret")
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 KST = timezone(timedelta(hours=9))
+db_initialized = False
 
 # =========================
 # 초기 JSON 파일 생성
@@ -75,9 +76,16 @@ def init_db():
                     created_at TIMESTAMP DEFAULT NOW()
                 );
             """)
-@app.before_first_request
-def setup():
+
+@app.before_request
+def ensure_db_initialized():
+    global db_initialized
+    if db_initialized:
+        return
+
     init_db()
+    db_initialized = True
+
 
 # =========================
 # 서비스워커 제공
