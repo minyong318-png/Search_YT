@@ -5,3 +5,5 @@ gunicorn
 requests
 lxml
 aiohttp
+pywebpush
+cryptography
