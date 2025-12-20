@@ -444,7 +444,7 @@ window.addEventListener("touchend", async () => {
       await loadMyAlarms();
 
       document.getElementById("updatedAt").innerText =
-        "마지막 업데이트 : " + new Date().toLocaleTimeString();
+        "마지막 업데이트 : " + renderUpdatedTime(new Date().toISOString());
 
     } catch (e) {
       alert("새로고침 실패: " + e.message);
