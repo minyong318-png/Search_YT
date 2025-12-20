@@ -234,19 +234,19 @@ let COURT_GROUPS = {};
 
 async function enablePushIfNeeded() {
   try {
-    console.log("1. permission:", Notification.permission);
+    alert("STEP 1: permission = " + Notification.permission);
 
     const permission = await Notification.requestPermission();
-    console.log("2. permission result:", permission);
+    alert("STEP 2: permission result = " + permission);
 
     const reg = await navigator.serviceWorker.register("/sw.js");
-    console.log("3. service worker registered:", reg);
+    alert("STEP 3: SW registered");
 
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     });
-    console.log("4. subscription:", sub);
+    alert("STEP 4: subscription success");
 
     await fetch("/push/subscribe", {
       method: "POST",
@@ -254,13 +254,13 @@ async function enablePushIfNeeded() {
       body: JSON.stringify(sub)
     });
 
-    console.log("5. subscription saved");
+    alert("STEP 5: server saved");
   } catch (e) {
-    console.error("❌ PUSH ERROR:", e);
-    alert("알림설정에 실패했습니다 (콘솔 확인)");
+    alert("❌ ERROR: " + e.name + "\n" + e.message);
     throw e;
   }
 }
+
 
 
 function urlBase64ToUint8Array(base64) {
