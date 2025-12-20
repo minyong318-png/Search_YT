@@ -7,6 +7,8 @@ import time
 import queue
 from pywebpush import webpush
 import json
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 from tennis_core import run_all
 from alarm_store import load_alarms, save_alarms, cleanup_old_alarms
@@ -35,6 +37,45 @@ def ensure_json_file(path, default):
 
 ALARM_FILE = "alarms.json"
 ensure_json_file(ALARM_FILE, [])
+# =========================
+# 데이터베이스 연결
+# =========================
+def get_db():
+    return psycopg2.connect(
+        os.environ["DATABASE_URL"],
+        sslmode="require"
+    )
+
+# =========================
+# 데이터베이스 초기화
+# =========================
+def init_db():
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            # alarms 테이블
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS alarms (
+                    id SERIAL PRIMARY KEY,
+                    subscription_id TEXT NOT NULL,
+                    court_group TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE (subscription_id, court_group, date)
+                );
+            """)
+
+            # 🔥 push_subscriptions 테이블
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS push_subscriptions (
+                    id TEXT PRIMARY KEY,
+                    endpoint TEXT NOT NULL,
+                    p256dh TEXT NOT NULL,
+                    auth TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW()
+                );
+            """)
+
+init_db()
 # =========================
 # 서비스워커 제공
 # =========================
@@ -130,20 +171,34 @@ def refresh():
         new_slots = []
 
     try:
-        subs = safe_load(PUSH_SUB_FILE, [])
-        alarms = safe_load("alarms.json", [])
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM alarms")
+                alarms = cur.fetchall()
+
+                cur.execute("SELECT * FROM push_subscriptions")
+                subs = cur.fetchall()
 
         for slot in new_slots:
             for alarm in alarms:
                 if not match_alarm_condition(alarm, slot):
                     continue
 
-                sub = next(
-                    (s["subscription"] for s in subs if s["id"] == alarm["subscription_id"]),
+                sub_row = next(
+                    (s for s in subs if s["id"] == alarm["subscription_id"]),
                     None
                 )
-                if not sub:
-                    continue
+
+                if not sub_row:
+                    continue  # 구독 정보 없으면 skip
+
+                sub = {
+                    "endpoint": sub_row["endpoint"],
+                    "keys": {
+                        "p256dh": sub_row["p256dh"],
+                        "auth": sub_row["auth"]
+                    }
+                }
 
                 send_push_notification(
                     sub,
@@ -160,33 +215,111 @@ def refresh():
 # =========================
 # Push 구독 저장 API
 # =========================
-
-PUSH_SUB_FILE = "push_subscriptions.json"
-ensure_json_file(PUSH_SUB_FILE, [])
-
-import hashlib
-
-def make_subscription_id(sub):
-    raw = json.dumps(sub, sort_keys=True)
-    return hashlib.sha256(raw.encode()).hexdigest()
-
 @app.route("/push/subscribe", methods=["POST"])
 def push_subscribe():
     sub = request.json
-    subs = safe_load(PUSH_SUB_FILE, [])
+    if not sub:
+        return jsonify({"error": "no subscription"}), 400
 
     sid = make_subscription_id(sub)
 
-    if not any(s["id"] == sid for s in subs):
-        subs.append({
-            "id": sid,
-            "subscription": sub,
-            "created_at": datetime.now(KST).isoformat()
-        })
-        safe_save(PUSH_SUB_FILE, subs)
+    endpoint = sub.get("endpoint")
+    keys = sub.get("keys", {})
+    p256dh = keys.get("p256dh")
+    auth = keys.get("auth")
+
+    if not endpoint or not p256dh or not auth:
+        return jsonify({"error": "invalid subscription"}), 400
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO push_subscriptions (id, endpoint, p256dh, auth)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (id)
+                DO UPDATE SET
+                  endpoint = EXCLUDED.endpoint,
+                  p256dh = EXCLUDED.p256dh,
+                  auth = EXCLUDED.auth
+            """, (sid, endpoint, p256dh, auth))
 
     return jsonify({"subscription_id": sid})
 
+# =========================
+# 알람 등록 API (중복 방지 포함)
+# =========================
+@app.route("/alarm/add", methods=["POST"])
+def alarm_add():
+    body = request.json or {}
+
+    subscription_id = body.get("subscription_id")
+    court_group = body.get("court_group")
+    date = body.get("date")
+
+    if not subscription_id or not court_group or not date:
+        return jsonify({"error": "invalid request"}), 400
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO alarms (subscription_id, court_group, date)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (subscription_id, court_group, date)
+                    DO NOTHING
+                """, (subscription_id, court_group, date))
+
+                if cur.rowcount == 0:
+                    return jsonify({"status": "duplicate"})
+
+        return jsonify({"status": "added"})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# =========================
+# 알람 목록 조회 API
+# =========================
+@app.route("/alarm/list")
+def alarm_list():
+    subscription_id = request.args.get("subscription_id")
+    if not subscription_id:
+        return jsonify([])
+
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT court_group, date, created_at
+                FROM alarms
+                WHERE subscription_id = %s
+                ORDER BY created_at DESC
+            """, (subscription_id,))
+            rows = cur.fetchall()
+
+    return jsonify(rows)
+
+# =========================
+# 알람 삭제 API
+# =========================
+@app.route("/alarm/delete", methods=["POST"])
+def alarm_delete():
+    body = request.json or {}
+
+    subscription_id = body.get("subscription_id")
+    court_group = body.get("court_group")
+    date = body.get("date")
+
+    if not subscription_id or not court_group or not date:
+        return jsonify({"error": "invalid request"}), 400
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                DELETE FROM alarms
+                WHERE subscription_id=%s AND court_group=%s AND date=%s
+            """, (subscription_id, court_group, date))
+
+    return jsonify({"status": "deleted"})
 # =========================
 # 헬스체크
 # =========================
@@ -315,137 +448,7 @@ def send_push_notification(subscription, title, body):
         }
     )
 
-# =========================
-# 알람 등록 API (중복 방지 포함)
-# =========================
 
 
-@app.route("/alarm/add", methods=["POST"])
-def alarm_add():
-    body = request.json or {}
 
-    subscription_id = body.get("subscription_id")
-    court_group = body.get("court_group")
-    date = body.get("date")
 
-    if not subscription_id or not court_group or not date:
-        return jsonify({"error": "invalid request"}), 400
-
-    alarms = safe_load(ALARM_FILE, [])
-
-    # 🔥 중복 알람 체크 (핵심)
-    for a in alarms:
-        if (
-            a.get("subscription_id") == subscription_id and
-            a.get("court_group") == court_group and
-            a.get("date") == date
-        ):
-            return jsonify({
-                "status": "duplicate",
-                "message": "이미 등록된 알람입니다."
-            })
-
-    # ✅ 중복이 아니면 저장
-    alarms.append({
-        "subscription_id": subscription_id,
-        "court_group": court_group,
-        "date": date,
-        "created_at": datetime.now(KST).isoformat()
-    })
-
-    safe_save(ALARM_FILE, alarms)
-
-    return jsonify({
-        "status": "added"
-    })
-
-# =========================
-# 알람 목록 조회 API
-# =========================
-@app.route("/alarm/list", methods=["GET"])
-def alarm_list():
-    subscription_id = request.args.get("subscription_id")
-    if not subscription_id:
-        return jsonify([])
-
-    alarms = safe_load(ALARM_FILE, [])
-
-    # ✅ 이 기기에 등록된 알람만 필터
-    result = [
-        {
-            "court_group": a.get("court_group"),
-            "date": a.get("date"),
-            "created_at": a.get("created_at")
-        }
-        for a in alarms
-        if a.get("subscription_id") == subscription_id
-    ]
-
-    return jsonify(result)
-
-# =========================
-# 알람 삭제 API
-# =========================
-@app.route("/alarm/delete", methods=["POST"])
-def alarm_delete():
-    body = request.json or {}
-
-    subscription_id = body.get("subscription_id")
-    court_group = body.get("court_group")
-    date = body.get("date")
-
-    if not subscription_id or not date or not court_group:
-        return jsonify({"error": "invalid request"}), 400
-
-    alarms = safe_load(ALARM_FILE, [])
-
-    before = len(alarms)
-
-    # ✅ 이 기기 + 같은 조건 알람만 제거
-    alarms = [
-        a for a in alarms
-        if not (
-            a.get("subscription_id") == subscription_id
-            and a.get("date") == date
-            and a.get("court_group") == court_group
-        )
-    ]
-
-    save_json(ALARM_FILE, alarms)
-
-    return jsonify({
-        "removed": before - len(alarms)
-    })
-
-# =========================
-# 푸시 테스트 (20초 지연)
-# =========================
-import threading
-import time
-
-@app.route("/push/test", methods=["POST"])
-def push_test():
-    data = request.json
-    subscription_id = data.get("subscription_id")
-
-    if not subscription_id:
-        return jsonify({"error": "subscription_id missing"}), 400
-
-    subs = safe_load(PUSH_SUB_FILE, [])
-    sub = next((s["subscription"] for s in subs if s["id"] == subscription_id), None)
-
-    if not sub:
-        return jsonify({"error": "subscription not found"}), 404
-
-    def delayed_push():
-        time.sleep(20)
-        send_push_notification(
-            sub,
-            "🔔 Push 테스트",
-            "알람 등록 20초 후 테스트 알림입니다."
-        )
-
-    threading.Thread(target=delayed_push, daemon=True).start()
-
-    return jsonify({"status": "ok", "message": "20초 후 알림이 전송됩니다"})
-# =========================
