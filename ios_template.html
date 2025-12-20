@@ -157,6 +157,24 @@ button{
 </head>
 
 <body>
+<div id="pullIndicator"
+    style="
+      position: fixed;
+      top: -50px;
+      left: 0;
+      right: 0;
+      height: 50px;
+      text-align: center;
+      line-height: 50px;
+      background: #f5f5f5;
+      color: #555;
+      font-size: 14px;
+      transition: top 0.2s;
+      z-index: 9999;
+    ">
+🔄 아래로 당겨 새로고침
+</div>
+
 <div class="container">
 
   <div class="header">
@@ -218,7 +236,8 @@ button{
 
   <!-- 데이터 -->
   <div class="card">
-    <h3>예약 가능 현황</h3>
+    
+    <h3>예약 가능 현황 </h3>
     <div id="courts">
       ⏳ 예약 정보를 불러오는 중입니다…
     </div>
@@ -322,6 +341,68 @@ async function loadData() {
       "⏳ 서버에서 예약 정보를 불러오지 못했습니다.<br>잠시 후 새로고침 해주세요.";
   }
 }
+let pullStartY = null;
+let isRefreshing = false;
+
+const pullIndicator = document.getElementById("pullIndicator");
+const PULL_THRESHOLD = 70; // 당겨야 새로고침되는 거리(px)
+
+document.addEventListener("touchstart", e => {
+  if (window.scrollY === 0 && !isRefreshing) {
+    pullStartY = e.touches[0].clientY;
+  }
+}, { passive: true });
+
+document.addEventListener("touchmove", e => {
+  if (pullStartY === null || isRefreshing) return;
+
+  const currentY = e.touches[0].clientY;
+  const diff = currentY - pullStartY;
+
+  if (diff > 0) {
+    e.preventDefault(); // 기본 스크롤 방지 (중요)
+
+    const offset = Math.min(diff, 80);
+    pullIndicator.style.top = (-50 + offset) + "px";
+
+    if (diff > PULL_THRESHOLD) {
+      pullIndicator.textContent = "🔄 손을 놓으면 새로고침";
+    } else {
+      pullIndicator.textContent = "🔄 아래로 당겨 새로고침";
+    }
+  }
+}, { passive: false });
+
+document.addEventListener("touchend", async () => {
+  if (pullStartY === null || isRefreshing) return;
+
+  const indicatorTop = parseInt(pullIndicator.style.top || "-50", 10);
+
+  pullIndicator.style.top = "-50px";
+
+  if (indicatorTop > 20) {
+    // 🔥 새로고침 트리거
+    isRefreshing = true;
+    pullIndicator.textContent = "⏳ 새로고침 중…";
+    pullIndicator.style.top = "0px";
+
+    try {
+      await loadData();
+      await loadMyAlarms();
+
+      document.getElementById("updatedAt").innerText =
+        "마지막 업데이트 : " + new Date().toLocaleTimeString();
+
+    } catch (e) {
+      alert("새로고침 실패: " + e.message);
+    }
+
+    pullIndicator.style.top = "-50px";
+    isRefreshing = false;
+  }
+
+  pullStartY = null;
+});
 
 
 
