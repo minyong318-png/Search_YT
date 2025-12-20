@@ -233,38 +233,35 @@ let DATA = {};
 let COURT_GROUPS = {};
 
 async function enablePushIfNeeded() {
-  // 이미 권한 있으면 다시 안 물어봄
-  if (Notification.permission === "granted") {
-    return;
+  try {
+    console.log("1. permission:", Notification.permission);
+
+    const permission = await Notification.requestPermission();
+    console.log("2. permission result:", permission);
+
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    console.log("3. service worker registered:", reg);
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+    console.log("4. subscription:", sub);
+
+    await fetch("/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sub)
+    });
+
+    console.log("5. subscription saved");
+  } catch (e) {
+    console.error("❌ PUSH ERROR:", e);
+    alert("알림설정에 실패했습니다 (콘솔 확인)");
+    throw e;
   }
-
-  if (!("serviceWorker" in navigator)) {
-    alert("이 브라우저는 알림을 지원하지 않습니다.");
-    return;
-  }
-
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") {
-    alert("알림 권한이 허용되지 않았습니다.");
-    throw new Error("notification denied");
-  }
-
-  // Service Worker 등록
-  const reg = await navigator.serviceWorker.register("/sw.js");
-
-  // Push 구독
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-  });
-
-  // 서버에 저장
-  await fetch("/push/subscribe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(sub)
-  });
 }
+
 
 function urlBase64ToUint8Array(base64) {
   const padding = "=".repeat((4 - base64.length % 4) % 4);
@@ -466,11 +463,7 @@ async function deleteAlarm(group, date){
 
 alarmBtn.onclick = async () => {
 
-  await enablePushIfNeeded().catch((e)=>{
-    console.error("[enablePushIfNeeded error]", e);
-    alert("알림 설정에 실패했습니다.");
-    return;
-  });
+  await enablePushIfNeeded();
 
   if (!alarmCourt.value || !alarmDate.value) {
     alert("코트와 날짜를 선택하세요");
