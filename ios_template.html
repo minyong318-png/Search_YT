@@ -162,7 +162,6 @@ button{
   <div class="header">
     <h1>🎾 용인 테니스 예약</h1>
     <div class="updated" id="updatedAt">업데이트 확인 중…</div>
-    <div class="updated" id="loginStatus">로그인 확인 중…</div>
   </div>
 
   <!-- 필터 -->
@@ -228,8 +227,50 @@ button{
 </div>
 
 <script>
+const VAPID_PUBLIC_KEY = "BLLOhRZIO4FbSxSapToATz0L5QGkn_0UGBdVrwsp-IeEBfKd_vFyeDXiVsZ8AGJ2Dbv52zDMzQ-LU2qEVng9M7I";
+
 let DATA = {};
 let COURT_GROUPS = {};
+
+async function enablePushIfNeeded() {
+  // 이미 권한 있으면 다시 안 물어봄
+  if (Notification.permission === "granted") {
+    return;
+  }
+
+  if (!("serviceWorker" in navigator)) {
+    alert("이 브라우저는 알림을 지원하지 않습니다.");
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    alert("알림 권한이 허용되지 않았습니다.");
+    throw new Error("notification denied");
+  }
+
+  // Service Worker 등록
+  const reg = await navigator.serviceWorker.register("/sw.js");
+
+  // Push 구독
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+  });
+
+  // 서버에 저장
+  await fetch("/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sub)
+  });
+}
+
+function urlBase64ToUint8Array(base64) {
+  const padding = "=".repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
 
 function getCourtGroup(title){
   return title
@@ -237,22 +278,6 @@ function getCourtGroup(title){
     .split("테니스장")[0]      // '테니스장' 앞까지만 사용
     .trim();
 }
-
-async function loadMe(){
-  const res = await fetch("/me");
-  const me = await res.json();
-
-  if (!me.logged_in) {
-    loginStatus.innerHTML = `🔐 <a href="/auth/kakao">카카오 로그인</a> 후 알람 사용 가능`;
-    alarmBtn.disabled = true;
-    alarmBtn.style.opacity = 0.5;
-  } else {
-    loginStatus.textContent = `👤 ${me.nickname}님 로그인 중`;
-    alarmBtn.disabled = false;
-    alarmBtn.style.opacity = 1;
-  }
-}
-
 
 function getWeekday(yyyymmdd){
   const d=new Date(
@@ -440,6 +465,13 @@ async function deleteAlarm(group, date){
 
 
 alarmBtn.onclick = async () => {
+
+  await enablePushIfNeeded().catch((e)=>{
+    console.error("[enablePushIfNeeded error]", e);
+    alert("알림 설정에 실패했습니다.");
+    return;
+  });
+
   if (!alarmCourt.value || !alarmDate.value) {
     alert("코트와 날짜를 선택하세요");
     return;
@@ -455,13 +487,6 @@ alarmBtn.onclick = async () => {
     })
   });
 
-  // 🔥 여기 핵심
-  if (res.status === 401) {
-    // 로그인 안 된 상태 → 카카오 로그인으로 이동
-    window.location.href = "/auth/kakao";
-    return;
-  }
-
   if (res.status === 409) {
   alert("이미 등록된 알람입니다.");
   return;
@@ -472,6 +497,20 @@ alarmBtn.onclick = async () => {
     loadAlarms();
     alert("알람 등록 완료");
   }
+  
+  // 알람 등록 성공 후
+  const subscriptionId = localStorage.getItem("subscription_id");
+
+  await fetch("/push/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      subscription_id: subscriptionId
+    })
+  });
+
+  alert("알람 등록 완료! 20초 후 테스트 알림이 울립니다 🔔");
+
   loadAlarms();
 };
 async function init() {

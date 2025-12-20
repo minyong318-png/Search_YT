@@ -5,6 +5,8 @@ import os, json, traceback, requests
 import threading
 import time
 import queue
+from pywebpush import webpush
+import json
 
 from tennis_core import run_all
 from alarm_store import load_alarms, save_alarms, cleanup_old_alarms
@@ -18,13 +20,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "tennis-secret")
 
 # =========================
-# 카카오 설정 (환경변수)
+# 환경변수 설정
 # =========================
-KAKAO_REST_API_KEY = os.environ.get("KAKAO_REST_API_KEY")
-KAKAO_CLIENT_SECRET = os.environ.get("KAKAO_CLIENT_SECRET")
-KAKAO_REDIRECT_URI = os.environ.get("KAKAO_REDIRECT_URI")
-
-USERS_FILE = "users.json"
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
 KST = timezone(timedelta(hours=9))
 
 # =========================
@@ -39,6 +37,15 @@ ensure_json_file("last_slots.json", {})
 ensure_json_file("alarm_baseline.json", {})
 ensure_json_file("alarms.json", [])
 ensure_json_file("users.json", {})
+
+
+# =========================
+# 서비스워커 제공
+# =========================
+
+@app.route("/sw.js")
+def service_worker():
+    return app.send_static_file("sw.js")
 
 # =========================
 # 전역 캐시
@@ -55,55 +62,6 @@ CACHE = {
 @app.route("/")
 def index():
     return send_file("ios_template.html")
-
-# =========================
-# 카카오 로그인
-# =========================
-@app.route("/auth/kakao")
-def kakao_login():
-    url = (
-        "https://kauth.kakao.com/oauth/authorize"
-        "?response_type=code"
-        f"&client_id={KAKAO_REST_API_KEY}"
-        f"&redirect_uri={KAKAO_REDIRECT_URI}"
-        "&scope=talk_message"
-    )
-    return redirect(url)
-
-@app.route("/auth/kakao/callback")
-def kakao_callback():
-    code = request.args.get("code")
-
-    token = requests.post(
-        "https://kauth.kakao.com/oauth/token",
-        data={
-            "grant_type": "authorization_code",
-            "client_id": KAKAO_REST_API_KEY,
-            "client_secret": KAKAO_CLIENT_SECRET,
-            "redirect_uri": KAKAO_REDIRECT_URI,
-            "code": code,
-        }
-    ).json()
-
-    access_token = token.get("access_token")
-    if not access_token:
-        return "카카오 토큰 발급 실패", 400
-
-    user = requests.get(
-        "https://kapi.kakao.com/v2/user/me",
-        headers={"Authorization": f"Bearer {access_token}"}
-    ).json()
-
-    users = safe_load("users.json",{})
-    users[str(user["id"])] = {
-        "nickname": user["properties"]["nickname"],
-        "access_token": access_token,
-        "updated_at": datetime.now(KST).isoformat()
-    }
-    safe_save("users.json", users)
-
-    session["user_id"] = str(user["id"])
-    return redirect("/")
 
 # =========================
 # 데이터 API
@@ -176,9 +134,29 @@ def refresh():
         new_slots = []
 
     try:
-        send_notifications(new_slots)
+        subs = safe_load(PUSH_SUB_FILE, [])
+        alarms = safe_load("alarms.json", [])
+
+        for slot in new_slots:
+            for alarm in alarms:
+                if not match_alarm_condition(alarm, slot):
+                    continue
+
+                sub = next(
+                    (s["subscription"] for s in subs if s["id"] == alarm["subscription_id"]),
+                    None
+                )
+                if not sub:
+                    continue
+
+                send_push_notification(
+                    sub,
+                    "🎾 예약 가능!",
+                    f"{slot['court_title']}\n{slot['date']} {slot['time']}"
+                )
     except Exception as e:
-        print("[ERROR] notify failed", e)
+        print("[ERROR] push notification failed", e)
+        traceback.print_exc()
 
     print(f"[INFO] refresh done (new={len(new_slots)})")
     return "ok"
@@ -230,36 +208,41 @@ def alarm_add():
     return jsonify({"status": "ok"})
 
 # =========================
+# Push 구독 저장 API
+# =========================
+
+PUSH_SUB_FILE = "push_subscriptions.json"
+ensure_json_file(PUSH_SUB_FILE, [])
+
+import hashlib
+
+def make_subscription_id(sub):
+    raw = json.dumps(sub, sort_keys=True)
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+@app.route("/push/subscribe", methods=["POST"])
+def push_subscribe():
+    sub = request.json
+    subs = safe_load(PUSH_SUB_FILE, [])
+
+    sid = make_subscription_id(sub)
+
+    if not any(s["id"] == sid for s in subs):
+        subs.append({
+            "id": sid,
+            "subscription": sub,
+            "created_at": datetime.now(KST).isoformat()
+        })
+        safe_save(PUSH_SUB_FILE, subs)
+
+    return jsonify({"subscription_id": sid})
+
+# =========================
 # 헬스체크
 # =========================
 @app.route("/health")
 def health():
     return "ok"
-
-#==========================
-# 내 정보
-#=========================
-@app.route("/me")
-def me():
-    user_id = session.get("user_id")
-    if not user_id:
-        return jsonify({"logged_in": False})
-
-    users = safe_load("users.json", {})
-    if not isinstance(users , dict):
-       users = {}
-
-    user = users.get(user_id)
-
-    # 🔥 users.json에 정보 없으면 로그아웃 처리
-    if not user:
-        session.clear()
-        return jsonify({"logged_in": False})
-
-    return jsonify({
-        "logged_in": True,
-        "nickname": user.get("nickname", "")
-    })
 
 #==========================
 # 알람 삭제
@@ -289,68 +272,10 @@ def alarm_delete():
     safe_save("alarms.json", alarms)
 
     return jsonify({"status": "ok"})
-#==========================
-# 카카오 테스트 메시지
-#==========================
-@app.route("/test/kakao")
-def test_kakao():
-    user_id = session.get("user_id")
-    if not user_id:
-        return "로그인 필요", 401
-
-    users = safe_load("users.json", {})
-    if not isinstance(users , dict):
-       users = {}
-
-    user = users.get(user_id)
-    if not user:
-        return "유저 정보 없음", 400
-
-    access_token = user["access_token"]
-
-    res = send_kakao_message(
-        access_token,
-        "🔥 카카오 즉시 발송 테스트 메시지"
-    )
-
-    return {
-        "status": res.status_code,
-        "body": res.text
-    }
-
-
-
-#==========================
-# 카카오 메시지 전송 함수  
-#==========================
-def send_kakao_message(access_token, text):
-    try:
-        res = requests.post(
-            "https://kapi.kakao.com/v2/api/talk/memo/default/send",
-            headers={"Authorization": f"Bearer {access_token}"},
-            data={
-                "template_object": json.dumps({
-                    "object_type": "text",
-                    "text": text,
-                    "link": {
-                        "web_url": "https://web-production-e5054.up.railway.app",
-                        "mobile_web_url": "https://web-production-e5054.up.railway.app"
-                    },
-                    "button_title": "예약하러 가기"
-                })
-            },
-            timeout=5
-        )
-
-        print("[INFO] kakao send", res.status_code, res.text)
-        return res
-
-    except Exception as e:
-        print("[ERROR] kakao exception", e)
-        return None
 
 # =========================
 # 안전한 JSON 로드/저장
+# =========================
 
 def safe_load(path, default):
     if not os.path.exists(path):
@@ -375,7 +300,8 @@ def safe_save(path, data):
 
 # =========================
 # 새 슬롯 감지
-        
+# =========================
+#         
 def detect_new_slots(facilities, availability):
     sent = safe_load("last_slots.json", {})
     if not isinstance(sent, dict):
@@ -415,57 +341,7 @@ def detect_new_slots(facilities, availability):
 
     safe_save("last_slots.json", sent)
     return new_slots
-# =========================
-# 카카오 알림 발송
 
-def trigger_kakao_alerts(new_slots):
-    users = safe_load("users.json", {})
-    if not isinstance(users , dict):
-       users = {}
-
-    alarms = safe_load("alarms.json", [])
-    if not isinstance(alarms, list):
-       alarms = []
-
-    
-    # 🔹 사용자별로 보낼 슬롯 모으기
-    user_messages = defaultdict(list)
-
-    for slot in new_slots:
-        for alarm in alarms:
-
-            # 1️⃣ 코트 그룹 매칭
-            if alarm["court_group"] not in slot["court_title"]:
-                continue
-
-            # 2️⃣ 날짜 매칭 (YYYYMMDD ↔ YYYY-MM-DD)
-            slot_date = slot["date"]
-            alarm_date = alarm["date"].replace("-", "")
-            if slot_date != alarm_date:
-                continue
-
-            user_id = alarm["user_id"]
-            if user_id not in users:
-                continue
-
-            # 🔹 여기서는 "보내지 말고" 모으기만 함
-            user_messages[user_id].append(slot)
-
-    # 🔔 여기서 사용자당 1번만 발송
-    for user_id, slots in user_messages.items():
-        user = users[user_id]
-        msg_lines = ["🎾 테니스 예약 알림\n"]
-        group = alarm["court_group"]
-        for s in slots:
-            reserve_url = make_reserve_link(s["cid"])
-            msg_lines.append(
-                f"• [{group}] {s['court_title']}\n"
-                f"  {s['date'][4:6]}.{s['date'][6:8]} {s['time']}"
-                "👉 지금 예약 가능합니다!\n"
-                f"🔗 예약하러 가기\n{reserve_url}"
-            )
-        text = "\n".join(msg_lines)
-        send_kakao_message(user["access_token"], text)
 # =========================
 # 알람 기준 저장
 # =========================
@@ -487,70 +363,7 @@ def save_alarm_baseline(user_id):
 # =========================
 def crawl_all():
     return run_all() 
-# =========================
-def send_notifications(new_slots):
-    if not new_slots:
-        return
 
-    alarms = safe_load("alarms.json", [])
-    if not isinstance(alarms, list):
-       alarms = []
-
-    users = safe_load("users.json", {})
-    if not isinstance(users , dict):
-       users = {}
-    
-    alarms_by_user = defaultdict(list)
-    
-    for alarm in alarms:
-        uid = alarm.get("user_id")
-        if uid:
-            alarms_by_user[uid].append(alarm)
-
-    for user_id, user_alarms in alarms_by_user.items():
-        user = users.get(user_id)
-        if not user:
-            continue
-
-        access_token = user.get("access_token")
-        if not access_token:
-            continue
-
-        for slot in new_slots:
-            # 🔒 기존 로직 유지: 조건 맞을 때만 발송
-            if not match_alarm(user_alarms, slot):
-                continue
-            reserve_url = make_reserve_link(slot["cid"])
-            text = (
-                f"🎾 예약 가능 알림\n"
-                f"• {slot['court_title']}\n"
-                f"  {slot['date'][4:6]}.{slot['date'][6:8]} {slot['time']}"
-                "👉 지금 예약 가능합니다!\n"
-                f"🔗 예약하러 가기\n{reserve_url}"
-            )
-
-            send_kakao_message(access_token, text)
-# =========================
-def match_alarm(user_alarms, slot):
-    """
-    user_alarms: 해당 사용자가 등록한 알람 리스트
-    slot: detect_new_slots에서 발견한 슬롯(dict)
-    """
-
-    for alarm in user_alarms:
-        # 1️⃣ 날짜 비교
-        if alarm.get("date") != slot.get("date"):
-            continue
-
-        # 2️⃣ 코트 그룹 비교
-        court_group = alarm.get("court_group", "")
-        if court_group and court_group not in slot.get("court_title", ""):
-            continue
-
-        # 조건 모두 만족
-        return True
-
-    return False
 # =========================
 def group_slots_by_user(new_slots):
     grouped = defaultdict(list)
@@ -569,5 +382,50 @@ def make_reserve_link(resve_id):
         f"&checkSearchMonthNow=false"
     )
 # =========================
+#  알림 전송
+# =========================
+def send_push_notification(subscription, title, body):
+    payload = json.dumps({
+        "title": title,
+        "body": body
+    })
 
+    webpush(
+        subscription_info=subscription,
+        data=payload,
+        vapid_private_key=VAPID_PRIVATE_KEY,
+        vapid_claims="ccoo2000@naver.com"
+    )
 
+# =========================
+# 푸시 테스트 (20초 지연)
+# =========================
+import threading
+import time
+
+@app.route("/push/test", methods=["POST"])
+def push_test():
+    data = request.json
+    subscription_id = data.get("subscription_id")
+
+    if not subscription_id:
+        return jsonify({"error": "subscription_id missing"}), 400
+
+    subs = safe_load(PUSH_SUB_FILE, [])
+    sub = next((s["subscription"] for s in subs if s["id"] == subscription_id), None)
+
+    if not sub:
+        return jsonify({"error": "subscription not found"}), 404
+
+    def delayed_push():
+        time.sleep(20)
+        send_push_notification(
+            sub,
+            "🔔 Push 테스트",
+            "알람 등록 20초 후 테스트 알림입니다."
+        )
+
+    threading.Thread(target=delayed_push, daemon=True).start()
+
+    return jsonify({"status": "ok", "message": "20초 후 알림이 전송됩니다"})
+# =========================
