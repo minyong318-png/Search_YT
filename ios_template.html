@@ -233,35 +233,46 @@ let DATA = {};
 let COURT_GROUPS = {};
 
 async function enablePushIfNeeded() {
-  try {
-    alert("STEP 1: permission = " + Notification.permission);
+  // 이미 저장돼 있으면 재등록 불필요
+  const existing = localStorage.getItem("subscription_id");
+  if (existing) return existing;
 
-    const permission = await Notification.requestPermission();
-    alert("STEP 2: permission result = " + permission);
-
-    const reg = await navigator.serviceWorker.register("/sw.js");
-    alert("STEP 3: SW registered");
-
-    await navigator.serviceWorker.ready;
-    
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-    });
-    alert("STEP 4: subscription success");
-
-    await fetch("/push/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(sub)
-    });
-
-    alert("STEP 5: server saved");
-  } catch (e) {
-    alert("❌ ERROR: " + e.name + "\n" + e.message);
-    throw e;
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    throw new Error("permission denied");
   }
+
+  const reg = await navigator.serviceWorker.register("/sw.js");
+
+  // iOS에서 필수: active 될 때까지 대기
+  await navigator.serviceWorker.ready;
+
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+  });
+
+  const res = await fetch("/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sub)
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error("push/subscribe failed: " + res.status + " " + txt);
+  }
+
+  const data = await res.json();
+  if (!data.subscription_id) {
+    throw new Error("server did not return subscription_id");
+  }
+
+  localStorage.setItem("subscription_id", data.subscription_id);
+  alert("알람 등록 완료!");
+  return data.subscription_id;
 }
+
 
 
 
@@ -420,6 +431,7 @@ function renderCourts(){
   if(!courts.innerHTML) courts.textContent="조건에 맞는 예약이 없습니다.";
 }
 
+/*
 async function loadAlarms(){
   const res = await fetch("/alarm/list",{ credentials: "same-origin" });
   const list = await res.json();
@@ -455,59 +467,37 @@ async function deleteAlarm(group, date){
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
+      subscription_id: localStorage.getItem("subscription_id"),
       court_group: group,
       date: date
     })
   });
   loadAlarms();
 }
-
+*/
 
 alarmBtn.onclick = async () => {
+  try {
+    const subscriptionId = await enablePushIfNeeded();
 
-  await enablePushIfNeeded();
+    if (!alarmCourt.value || !alarmDate.value) {
+      alert("코트와 날짜를 선택하세요");
+      return;
+    }
 
-  if (!alarmCourt.value || !alarmDate.value) {
-    alert("코트와 날짜를 선택하세요");
-    return;
+    // ✅ (원하면) 등록 직후 Push 테스트
+    await fetch("/push/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscription_id: subscriptionId })
+    });
+
+  } catch (e) {
+    alert("알림설정/알람등록 실패: " + e.message);
   }
-
-  const res = await fetch("/alarm/add", {
-    method: "POST",
-    credentials: "same-origin",   // 🔥 중요
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      court_group: alarmCourt.value,
-      date: alarmDate.value
-    })
-  });
-
-  if (res.status === 409) {
-  alert("이미 등록된 알람입니다.");
-  return;
-  }
-
-  const data = await res.json();
-  if (data.status === "ok") {
-    loadAlarms();
-    alert("알람 등록 완료");
-  }
-  
-  // 알람 등록 성공 후
-  const subscriptionId = localStorage.getItem("subscription_id");
-
-  await fetch("/push/test", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      subscription_id: subscriptionId
-    })
-  });
-
-  alert("알람 등록 완료! 20초 후 테스트 알림이 울립니다 🔔");
-
-  loadAlarms();
+  //loadAlarms();
 };
+
 async function init() {
   await loadData();
 }
