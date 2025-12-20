@@ -319,7 +319,7 @@ async function loadData() {
     renderUpdatedTime(data.updated_at);
     buildCourtGroups();
     renderCourts();
-    //loadAlarms();
+    loadMyAlarms();
 
   } catch (e) {
     console.error("[loadData error]", e);
@@ -430,81 +430,125 @@ function renderCourts(){
 
   if(!courts.innerHTML) courts.textContent="조건에 맞는 예약이 없습니다.";
 }
+async function loadMyAlarms() {
+  const subscriptionId = localStorage.getItem("subscription_id");
+  const alarmListEl = document.getElementById("alarmList");
 
-/*
-async function loadAlarms(){
-  const res = await fetch("/alarm/list",{ credentials: "same-origin" });
-  const list = await res.json();
-
-  if (!list.length) {
-    alarmList.textContent = "등록된 알람이 없습니다.";
+  if (!subscriptionId) {
+    alarmListEl.innerHTML = "<li>알람이 없습니다.</li>";
     return;
   }
 
-  const grouped = {};
-  list.forEach(a => {
-    if (!grouped[a.court_group]) grouped[a.court_group] = [];
-    grouped[a.court_group].push(a.date);
-  });
+  const res = await fetch(
+    "/alarm/list?subscription_id=" + encodeURIComponent(subscriptionId)
+  );
 
-  let html = "";
-  Object.keys(grouped).sort().forEach(group => {
-    grouped[group].forEach(date => {
-      html += `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <span>${group} / ${date}</span>
-          <button onclick="deleteAlarm('${group}','${date}')" style="background:none;color:red;border:none">삭제</button>
-        </div>
-      `;
-    });
-  });
+  if (!res.ok) {
+    alarmListEl.innerHTML = "<li>알람 정보를 불러오지 못했습니다.</li>";
+    return;
+  }
 
-  alarmList.innerHTML = html;
+  const alarms = await res.json();
+
+  if (alarms.length === 0) {
+    alarmListEl.innerHTML = "<li>등록된 알람이 없습니다.</li>";
+    return;
+  }
+
+  alarmListEl.innerHTML = "";
+
+  for (const a of alarms) {
+    const li = document.createElement("li");
+    li.style.display = "flex";
+    li.style.justifyContent = "space-between";
+    li.style.alignItems = "center";
+
+    const text = document.createElement("span");
+    text.textContent = `${a.date} · ${a.court_group}`;
+
+    const delBtn = document.createElement("button");
+    delBtn.textContent = "DELETE";
+    delBtn.style.marginLeft = "8px";
+
+    delBtn.onclick = async () => {
+      if (!confirm("이 알람을 삭제할까요?")) return;
+
+      await deleteAlarm(a.date, a.court_group);
+      await loadMyAlarms(); // ✅ 즉시 갱신
+    };
+
+    li.appendChild(text);
+    li.appendChild(delBtn);
+    alarmListEl.appendChild(li);
+  }
 }
 
-async function deleteAlarm(group, date){
-  await fetch("/alarm/delete", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      subscription_id: localStorage.getItem("subscription_id"),
-      court_group: group,
-      date: date
+async function deleteAlarm(date, courtGroup) {
+  const subscriptionId = localStorage.getItem("subscription_id");
+
+  if (!subscriptionId) {
+    alert("subscription_id가 없습니다.");
+    return;
+  }
+
+  const res = await fetch("/alarm/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      subscription_id: subscriptionId,
+      date: date,
+      court_group: courtGroup
     })
   });
-  loadAlarms();
+
+  if (!res.ok) {
+    alert("알람 삭제 실패");
+  }
 }
-*/
 
 alarmBtn.onclick = async () => {
   try {
+    // 1️⃣ Push 구독 + subscription_id 확보
     const subscriptionId = await enablePushIfNeeded();
 
+    // 2️⃣ 입력값 검증
     if (!alarmCourt.value || !alarmDate.value) {
       alert("코트와 날짜를 선택하세요");
       return;
     }
 
-    // ✅ (원하면) 등록 직후 Push 테스트
-    await fetch("/push/test", {
+    // 3️⃣ 알람 등록 요청 (🔥 핵심)
+    const res = await fetch("/alarm/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subscription_id: subscriptionId })
+      body: JSON.stringify({
+        subscription_id: subscriptionId,
+        court_group: alarmCourt.value,
+        date: alarmDate.value
+      })
     });
+
+    const data = await res.json();
+
+    // 4️⃣ 중복 처리
+    if (data.status === "duplicate") {
+      alert("이미 등록된 알람입니다.");
+      return;
+    }
+
+    // 5️⃣ 등록 성공
+    if (data.status === "added") {
+      alert("알람 등록 완료!");
+    }
 
   } catch (e) {
     alert("알림설정/알람등록 실패: " + e.message);
   }
-  //loadAlarms();
+
+  // 6️⃣ 목록 갱신
+  loadMyAlarms();
 };
 
-async function init() {
-  await loadData();
-}
-
-function isDesktop() {
-  return !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-}
 
 if (isDesktop()) {
   flatpickr("#filterDate", {

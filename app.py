@@ -33,7 +33,8 @@ def ensure_json_file(path, default):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(default, f, ensure_ascii=False, indent=2)
 
-
+ALARM_FILE = "alarms.json"
+ensure_json_file(ALARM_FILE, [])
 # =========================
 # 서비스워커 제공
 # =========================
@@ -313,6 +314,108 @@ def send_push_notification(subscription, title, body):
             "sub": "mailto:ccoo2000@naver.com"
         }
     )
+
+# =========================
+# 알람 등록 API (중복 방지 포함)
+# =========================
+
+
+@app.route("/alarm/add", methods=["POST"])
+def alarm_add():
+    body = request.json or {}
+
+    subscription_id = body.get("subscription_id")
+    court_group = body.get("court_group")
+    date = body.get("date")
+
+    if not subscription_id or not court_group or not date:
+        return jsonify({"error": "invalid request"}), 400
+
+    alarms = safe_load(ALARM_FILE, [])
+
+    # 🔥 중복 알람 체크 (핵심)
+    for a in alarms:
+        if (
+            a.get("subscription_id") == subscription_id and
+            a.get("court_group") == court_group and
+            a.get("date") == date
+        ):
+            return jsonify({
+                "status": "duplicate",
+                "message": "이미 등록된 알람입니다."
+            })
+
+    # ✅ 중복이 아니면 저장
+    alarms.append({
+        "subscription_id": subscription_id,
+        "court_group": court_group,
+        "date": date,
+        "created_at": datetime.now(KST).isoformat()
+    })
+
+    safe_save(ALARM_FILE, alarms)
+
+    return jsonify({
+        "status": "added"
+    })
+
+# =========================
+# 알람 목록 조회 API
+# =========================
+@app.route("/alarm/list", methods=["GET"])
+def alarm_list():
+    subscription_id = request.args.get("subscription_id")
+    if not subscription_id:
+        return jsonify([])
+
+    alarms = safe_load(ALARM_FILE, [])
+
+    # ✅ 이 기기에 등록된 알람만 필터
+    result = [
+        {
+            "court_group": a.get("court_group"),
+            "date": a.get("date"),
+            "created_at": a.get("created_at")
+        }
+        for a in alarms
+        if a.get("subscription_id") == subscription_id
+    ]
+
+    return jsonify(result)
+
+# =========================
+# 알람 삭제 API
+# =========================
+@app.route("/alarm/delete", methods=["POST"])
+def alarm_delete():
+    body = request.json or {}
+
+    subscription_id = body.get("subscription_id")
+    court_group = body.get("court_group")
+    date = body.get("date")
+
+    if not subscription_id or not date or not court_group:
+        return jsonify({"error": "invalid request"}), 400
+
+    alarms = safe_load(ALARM_FILE, [])
+
+    before = len(alarms)
+
+    # ✅ 이 기기 + 같은 조건 알람만 제거
+    alarms = [
+        a for a in alarms
+        if not (
+            a.get("subscription_id") == subscription_id
+            and a.get("date") == date
+            and a.get("court_group") == court_group
+        )
+    ]
+
+    save_json(ALARM_FILE, alarms)
+
+    return jsonify({
+        "removed": before - len(alarms)
+    })
 
 # =========================
 # 푸시 테스트 (20초 지연)
