@@ -157,6 +157,10 @@ def refresh():
         print("[ERROR] crawl failed", e)
         return "crawl failed", 500
 
+    # 🔥 테스트 모드: ?test=1
+    if request.args.get("test") == "1":
+        inject_test_slot(facilities, availability)
+        
     try:
         new_availability = {}
         for cid, days in availability.items():
@@ -459,6 +463,45 @@ def send_push_notification(subscription, title, body):
         }
     )
 
+
+def inject_test_slot(facilities, availability):
+    """
+    테스트용: 시립골드 테니스장 / 특정 날짜 / 특정 시간
+    실제 detect_new_slots → match_alarm_condition 경로를 그대로 타게 함
+    """
+
+    # 1️⃣ '시립골드 테니스장'에 해당하는 cid 찾기
+    target_cid = None
+    for cid, info in facilities.items():
+        title = info.get("title", "")
+        if "시립골드" in title:
+            target_cid = cid
+            break
+
+    if not target_cid:
+        print("[TEST] 시립골드 테니스장 cid 못 찾음")
+        return
+
+    # 2️⃣ 테스트 날짜 (예: 2025-12-22 → YYYYMMDD)
+    test_date = "20251222"
+
+    # 3️⃣ 가짜 슬롯 (실제 구조 그대로)
+    fake_slot = {
+        "timeContent": "18:00~20:00",
+        "resveId": target_cid
+    }
+
+    availability.setdefault(target_cid, {})
+    availability[target_cid].setdefault(test_date, [])
+
+    # 중복 방지
+    if any(s.get("timeContent") == fake_slot["timeContent"]
+           for s in availability[target_cid][test_date]):
+        print("[TEST] 이미 테스트 슬롯 존재")
+        return
+
+    availability[target_cid][test_date].append(fake_slot)
+    print("[TEST] 가짜 슬롯 주입 완료:", test_date, fake_slot["timeContent"])
 
 
 
