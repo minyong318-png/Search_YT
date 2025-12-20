@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_file, redirect, session
+from flask import Flask, jsonify, request, send_file, redirect, session, send_from_directory
 from datetime import datetime,timezone,timedelta
 from collections import defaultdict
 import os, json, traceback, requests
@@ -45,7 +45,7 @@ ensure_json_file("users.json", {})
 
 @app.route("/sw.js")
 def service_worker():
-    return app.send_static_file("sw.js")
+    return send_from_directory("static", "sw.js")
 
 # =========================
 # 전역 캐시
