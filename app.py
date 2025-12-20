@@ -33,11 +33,6 @@ def ensure_json_file(path, default):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(default, f, ensure_ascii=False, indent=2)
 
-ensure_json_file("last_slots.json", {})
-ensure_json_file("alarm_baseline.json", {})
-ensure_json_file("alarms.json", [])
-ensure_json_file("users.json", {})
-
 
 # =========================
 # 서비스워커 제공
@@ -161,52 +156,6 @@ def refresh():
     print(f"[INFO] refresh done (new={len(new_slots)})")
     return "ok"
 
-
-# =========================
-# 알람 API (사용자별)
-# =========================
-@app.route("/alarm/list")
-def alarm_list():
-    user_id = session.get("user_id")
-    if not user_id:
-        return jsonify([])
-
-    alarms = safe_load("alarms.json", [])
-    if not isinstance(alarms, list):
-       alarms = []
-
-    return jsonify([a for a in alarms if a.get("user_id") == user_id])
-
-@app.route("/alarm/add", methods=["POST"])
-def alarm_add():
-    user_id = session.get("user_id")
-    if not user_id:
-        return jsonify({"error": "login required"}), 401
-
-    body = request.json
-    alarms = safe_load("alarms.json", [])
-    if not isinstance(alarms, list):
-       alarms = []
-
-    for a in alarms:
-        if (
-            a["user_id"] == user_id and
-            a["court_group"] == body["court_group"] and
-            a["date"] == body["date"]
-        ):
-            return jsonify({"error": "duplicate"}), 409
-    
-    alarms.append({
-        "user_id": user_id,
-        "court_group": body.get("court_group"),
-        "date": body.get("date"),
-        "created_at": datetime.now(KST).isoformat()
-    })
-    safe_save("alarms.json",alarms)
-    save_alarm_baseline(user_id)
-
-    return jsonify({"status": "ok"})
-
 # =========================
 # Push 구독 저장 API
 # =========================
@@ -243,35 +192,6 @@ def push_subscribe():
 @app.route("/health")
 def health():
     return "ok"
-
-#==========================
-# 알람 삭제
-#==========================
-@app.route("/alarm/delete", methods=["POST"])
-def alarm_delete():
-    user_id = session.get("user_id")
-    if not user_id:
-        return jsonify({"error": "login required"}), 401
-
-    body = request.json
-    court = body.get("court_group")
-    date = body.get("date")
-
-    alarms = safe_load("alarms.json", [])
-    if not isinstance(alarms, list):
-       alarms = []
-
-    alarms = [
-        a for a in alarms
-        if not (
-            a["user_id"] == user_id and
-            a["court_group"] == court and
-            a["date"] == date
-        )
-    ]
-    safe_save("alarms.json", alarms)
-
-    return jsonify({"status": "ok"})
 
 # =========================
 # 안전한 JSON 로드/저장
@@ -343,33 +263,28 @@ def detect_new_slots(facilities, availability):
     return new_slots
 
 # =========================
-# 알람 기준 저장
+# 알람 조건과 슬롯 매칭
 # =========================
-def save_alarm_baseline(user_id):
-    baseline = safe_load("alarm_baseline.json", {})
-    if not isinstance(baseline, dict):
-        baseline = {}
-    snapshot = {}
 
-    for cid, days in CACHE["availability"].items():
-        for date, slots in days.items():
-            for s in slots:
-                key = f"{cid}|{date}|{s['timeContent']}"
-                snapshot[key] = True
+def match_alarm_condition(alarm, slot):
+    # 날짜 비교 (YYYY-MM-DD ↔ YYYYMMDD)
+    alarm_date = alarm.get("date", "").replace("-", "")
+    if alarm_date != slot.get("date"):
+        return False
 
-    baseline[user_id] = snapshot
+    # 코트 그룹 이름 포함 여부
+    court_group = alarm.get("court_group", "")
+    if court_group and court_group not in slot.get("court_title", ""):
+        return False
 
-    safe_save("alarm_baseline.json", baseline)
+    return True
+
+# =========================
+# 전체 크롤링 실행
 # =========================
 def crawl_all():
     return run_all() 
 
-# =========================
-def group_slots_by_user(new_slots):
-    grouped = defaultdict(list)
-    for s in new_slots:
-        grouped[s["user_id"]].append(s)
-    return grouped
 # =========================
 def make_reserve_link(resve_id):
     base = "https://publicsports.yongin.go.kr/publicsports/sports/selectFcltyRceptResveViewU.do"
@@ -394,7 +309,9 @@ def send_push_notification(subscription, title, body):
         subscription_info=subscription,
         data=payload,
         vapid_private_key=VAPID_PRIVATE_KEY,
-        vapid_claims="ccoo2000@naver.com"
+        vapid_claims={
+            "sub": "mailto:ccoo2000@naver.com"
+        }
     )
 
 # =========================
