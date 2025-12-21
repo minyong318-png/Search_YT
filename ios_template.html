@@ -658,7 +658,7 @@ async function deleteAlarm(date, courtGroup) {
 
 alarmBtn.onclick = async () => {
   try {
-    // 1️⃣ Push 구독 + subscription_id 확보
+    // 🔥 1️⃣ push 구독 확보 (이미 있으면 재사용)
     const subscriptionId = await enablePushIfNeeded();
 
     // 2️⃣ 입력값 검증
@@ -667,7 +667,7 @@ alarmBtn.onclick = async () => {
       return;
     }
 
-    // 3️⃣ 알람 등록 요청 (🔥 핵심)
+    // 🔥 3️⃣ 알람 등록
     const res = await fetch("/alarm/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -678,26 +678,34 @@ alarmBtn.onclick = async () => {
       })
     });
 
-    const data = await res.json();
+    // 🔥 서버가 JSON이 아닐 수도 있으니 보호
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error("서버 응답 형식 오류");
+    }
 
-    // 4️⃣ 중복 처리
     if (data.status === "duplicate") {
       alert("이미 등록된 알람입니다.");
       return;
     }
 
-    // 5️⃣ 등록 성공
     if (data.status === "added") {
       alert("알람 등록 완료!");
+    } else {
+      alert("알람 등록 실패");
     }
 
   } catch (e) {
+    console.error(e);
     alert("알림설정/알람등록 실패: " + e.message);
   }
 
   // 6️⃣ 목록 갱신
   loadMyAlarms();
 };
+
 
 function isDesktop() {
   return window.innerWidth >= 768;
@@ -723,18 +731,21 @@ if (isDesktop()) {
 
 async function init() {
   try {
-    // 🔥 0️⃣ 페이지 로드 시 push 구독 먼저 확보
-    await enablePushIfNeeded();
-    // 1️⃣ 예약 가능 데이터 로드
-    await loadData();
+    // 🔕 init에서는 push 실패해도 무시
+    try {
+      await enablePushIfNeeded({ silent: true });
+    } catch (e) {
+      console.warn("Push not ready yet:", e.message);
+    }
 
-    // 2️⃣ 이 기기의 알람 목록 로드
+    await loadData();
     await loadMyAlarms();
 
   } catch (e) {
-    alert("init error:", e);
+    alert("init fatal error: " + e.message);
   }
 }
+
 
 filterGu.onchange=renderCourts;
 filterCourt.onchange=renderCourts;
