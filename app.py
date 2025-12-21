@@ -52,6 +52,7 @@ def get_db():
 # 데이터베이스 초기화
 # =========================
 def init_db():
+    print("🔥 init_db CALLED")
     with get_db() as conn:
         with conn.cursor() as cur:
             # alarms 테이블
