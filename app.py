@@ -88,7 +88,7 @@ def init_db():
 
             # ✅ baseline_slots 테이블 (이게 핵심)
             cur.execute("""
-                CREATE TABLE baseline_slots (
+                CREATE TABLE IF NOT EXISTS baseline_slots (
                     id SERIAL PRIMARY KEY,
                     subscription_id TEXT NOT NULL,
                     court_group TEXT NOT NULL,
