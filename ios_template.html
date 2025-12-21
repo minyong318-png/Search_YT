@@ -703,6 +703,8 @@ if (isDesktop()) {
 
 async function init() {
   try {
+    // 🔥 0️⃣ 페이지 로드 시 push 구독 먼저 확보
+    await enablePushIfNeeded();
     // 1️⃣ 예약 가능 데이터 로드
     await loadData();
 

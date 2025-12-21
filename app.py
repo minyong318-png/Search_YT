@@ -198,7 +198,26 @@ def refresh():
         inject_test_slot_1(facilities, availability)
     if request.args.get("test") == "2":
         inject_test_slot_2(facilities, availability)
+    if request.args.get("test") == "3":
+        with get_db() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM push_subscriptions LIMIT 1")
+                s = cur.fetchone()
 
+        if s:
+            send_push_notification(
+                {
+                    "endpoint": s["endpoint"],
+                    "keys": {
+                        "p256dh": s["p256dh"],
+                        "auth": s["auth"]
+                    }
+                },
+                title="🎾 예약 가능 알림 테스트",
+                body="정상 동작 확인"
+            )
+        else:
+            print("[TEST] push_subscriptions 비어 있음")
     try:
         new_availability = {}
         for cid, days in availability.items():
@@ -620,6 +639,7 @@ def flatten_slots(facilities, availability):
                     "is_test": s.get("is_test", False)
                 })
     return slots
+
 
 def inject_test_slot_1(facilities, availability):
     # 🔥 반드시 문자열
