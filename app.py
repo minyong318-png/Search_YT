@@ -88,14 +88,14 @@ def init_db():
 
             # ✅ baseline_slots 테이블 (이게 핵심)
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS baseline_slots (
+                CREATE TABLE baseline_slots (
                     id SERIAL PRIMARY KEY,
                     subscription_id TEXT NOT NULL,
-                    cid TEXT NOT NULL,
+                    court_group TEXT NOT NULL,
                     date CHAR(8) NOT NULL,
                     time_content TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT NOW(),
-                    UNIQUE (subscription_id, cid, date, time_content)
+                    UNIQUE (subscription_id, court_group, date, time_content)
                 );
             """)
         conn.commit()
@@ -248,53 +248,47 @@ def refresh():
 
                     # 🔑 이 알람(사람+코트+날짜)의 baseline 로드
                     cur.execute("""
-                        SELECT cid, date, time_content
+                        SELECT time_content
                         FROM baseline_slots
                         WHERE subscription_id = %s
+                        AND court_group = %s
                         AND date = %s
-                        AND cid = ANY(%s)
-                    """, (subscription_id, alarm_date, group_cids))
+                    """, (subscription_id, alarm_group, alarm_date))
 
-                    baseline_rows = cur.fetchall()
-
-                    baseline = set(
-                        f"{r['cid']}|{r['date']}|{r['time_content']}"
-                        for r in baseline_rows
-                    )
+                    baseline = {r["time_content"] for r in cur.fetchall()}
 
                     # 🔥 최초 refresh → baseline 초기화만 하고 알람 ❌
                     if not baseline:
-                        for slot in current_slots:
-                            if slot["cid"] in group_cids and slot["date"] == alarm_date:
-                                add_to_baseline(
-                                    cur,
-                                    subscription_id,
-                                    slot["cid"],
-                                    slot["date"],
-                                    slot["time"]
-                                )
-                        continue   # 🔴 절대 알람 발송 안 함
+                        times = {
+                            slot["time"]
+                            for slot in current_slots
+                            if slot["cid"] in group_cids and slot["date"] == alarm_date
+                        }
+                        for t in times:
+                            add_to_baseline(cur, subscription_id, alarm_group, alarm_date, t)
+                        continue
+                            # ❗ 최초 refresh에서는 절대 알람 안 울림
 
                     # 🔔 이후 refresh → 신규 슬롯만 알람
                     for slot in current_slots:
-                        key = f"{slot['cid']}|{slot['date']}|{slot['time']}"
-
                         if slot["cid"] not in group_cids:
                             continue
                         if slot["date"] != alarm_date:
                             continue
-                        if key in baseline:
+                        if slot["time"] in baseline:
                             continue
 
                         sub = subs_map.get(subscription_id)
                         if not sub:
                             continue
 
-                        # 중복 발송 방지
+                        # 중복 발송 방지 (group 기준)
+                        slot_key = f"{alarm_group}|{alarm_date}|{slot['time']}"
+
                         cur.execute("""
                             SELECT 1 FROM sent_slots
-                            WHERE subscription_id = %s AND slot_key = %s
-                        """, (subscription_id, key))
+                            WHERE subscription_id=%s AND slot_key=%s
+                        """, (subscription_id, slot_key))
                         if cur.fetchone():
                             continue
 
@@ -302,25 +296,27 @@ def refresh():
                         send_push_notification(
                             sub,
                             title="🎾 예약 가능 알림",
-                            body=f"{slot['court_title']} {slot['date']} {slot['time']}"
+                            body=f"{alarm_group} {alarm_date} {slot['time']}"
                         )
+                        fired += 1
+                        print(f"[INFO] push sent to {subscription_id} | {alarm_group} | {alarm_date} | {slot['time']}")
 
-                        # baseline & sent 기록
+                        # 기록
                         add_to_baseline(
                             cur,
                             subscription_id,
-                            slot["cid"],
-                            slot["date"],
+                            alarm_group,
+                            alarm_date,
                             slot["time"]
                         )
+                        baseline.add(slot["time"])
 
                         cur.execute("""
                             INSERT INTO sent_slots (subscription_id, slot_key)
                             VALUES (%s, %s)
                             ON CONFLICT DO NOTHING
-                        """, (subscription_id, key))
+                        """, (subscription_id, slot_key))
 
-                        break  # 사람당 1회 알람
 
             conn.commit()
 
@@ -528,12 +524,14 @@ def is_in_baseline(cur, subscription_id, cid, date, time_content):
 # =========================
 # 기준선 슬롯 추가
 # =========================
-def add_to_baseline(cur, subscription_id, cid, date, time_content):
+def add_to_baseline(cur, subscription_id, court_group, date, time_content):
     cur.execute("""
-        INSERT INTO baseline_slots (subscription_id, cid, date, time_content)
+        INSERT INTO baseline_slots
+            (subscription_id, court_group, date, time_content)
         VALUES (%s, %s, %s, %s)
         ON CONFLICT DO NOTHING
-    """, (subscription_id, cid, date, time_content))
+    """, (subscription_id, court_group, date, time_content))
+
 
 # =========================
 # 기준선 슬롯 정리
