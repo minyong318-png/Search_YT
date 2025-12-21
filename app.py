@@ -631,7 +631,7 @@ def inject_test_slot_1(facilities, availability):
 
     # 🔥 availability 실제 포맷
     test_date = "20251222"
-    test_time = "20:00 ~ 22:00"
+    test_time = "04:00 ~ 06:00"
 
     availability.setdefault(target_cid, {})
     availability[target_cid].setdefault(test_date, [])
@@ -659,7 +659,7 @@ def inject_test_slot_2(facilities, availability):
 
     # 🔥 availability 실제 포맷
     test_date = "20251222"
-    test_time = "20:00 ~ 22:00"
+    test_time = "22:00 ~ 24:00"
 
     availability.setdefault(target_cid, {})
     availability[target_cid].setdefault(test_date, [])
