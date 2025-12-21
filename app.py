@@ -195,7 +195,9 @@ def refresh():
 
     # 🔥 테스트 모드: ?test=1
     if request.args.get("test") == "1":
-        inject_test_slot(facilities, availability)
+        inject_test_slot_1(facilities, availability)
+    if request.args.get("test") == "2":
+        inject_test_slot_2(facilities, availability)
 
     try:
         new_availability = {}
@@ -269,6 +271,12 @@ def refresh():
                             add_to_baseline(cur, subscription_id, alarm_group, alarm_date, t)
                         continue
                             # ❗ 최초 refresh에서는 절대 알람 안 울림
+                    print("DEBUG alarm:", subscription_id, alarm_group, alarm_date)
+                    print("DEBUG group_cids:", group_cids)
+
+                    for slot in current_slots:
+                        if slot["date"] == alarm_date:
+                            print("DEBUG slot:", slot["cid"], slot["date"], slot["time"])
 
                     # 🔔 이후 refresh → 신규 슬롯만 알람
                     for slot in current_slots:
@@ -613,7 +621,7 @@ def flatten_slots(facilities, availability):
                 })
     return slots
 
-def inject_test_slot(facilities, availability):
+def inject_test_slot_1(facilities, availability):
     # 🔥 반드시 문자열
     target_cid = "10343"
 
@@ -623,7 +631,35 @@ def inject_test_slot(facilities, availability):
 
     # 🔥 availability 실제 포맷
     test_date = "20251222"
-    test_time = "22:00 ~ 24:00"
+    test_time = "20:00 ~ 22:00"
+
+    availability.setdefault(target_cid, {})
+    availability[target_cid].setdefault(test_date, [])
+
+    if any(s["timeContent"] == test_time
+           for s in availability[target_cid][test_date]):
+        print("[TEST] 이미 테스트 슬롯 존재")
+        return
+
+    availability[target_cid][test_date].append({
+        "timeContent": test_time,
+        "resveId": None
+    })
+
+    print("[TEST] 슬롯 주입:", target_cid, test_date, test_time)
+
+
+def inject_test_slot_2(facilities, availability):
+    # 🔥 반드시 문자열
+    target_cid = "10343"
+
+    if target_cid not in facilities:
+        print("[TEST] cid 10343 not found")
+        return
+
+    # 🔥 availability 실제 포맷
+    test_date = "20251222"
+    test_time = "20:00 ~ 22:00"
 
     availability.setdefault(target_cid, {})
     availability[target_cid].setdefault(test_date, [])
