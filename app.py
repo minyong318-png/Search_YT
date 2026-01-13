@@ -11,7 +11,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 from tennis_core import run_all
-from alarm_store import load_alarms, save_alarms, cleanup_old_alarms
+
 
 
 
@@ -29,16 +29,6 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 KST = timezone(timedelta(hours=9))
 db_initialized = False
 
-# =========================
-# 초기 JSON 파일 생성
-# =========================
-def ensure_json_file(path, default):
-    if not os.path.exists(path) or os.path.getsize(path) == 0:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(default, f, ensure_ascii=False, indent=2)
-
-ALARM_FILE = "alarms.json"
-ensure_json_file(ALARM_FILE, [])
 # =========================
 # 데이터베이스 연결
 # =========================
@@ -698,5 +688,8 @@ def inject_test_slot_2(facilities, availability):
 
 
 
+if __name__ == "__main__":
+    init_db()
+    app.run(host="0.0.0.0", port=8080)
 
 
